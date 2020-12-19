@@ -24,6 +24,7 @@ def getData():
         jsonify(data): Datacube der vom Data Team geliefert wird
     """
     dataFromPost = request.get_json()
+    print(dataFromPost)
     data = None
     return jsonify(data)
 
