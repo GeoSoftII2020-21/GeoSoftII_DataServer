@@ -3,30 +3,23 @@ import requests
 
 app = Flask(__name__)
 
-@app.route("/data", methods=["POST"])
-def postData():
-    """
-    Absprache mit Dev Team Erforderlich zum Daten Einladen
-    :return:
-    """
-    dataFromPost = request.get_json()
-    print(dataFromPost)
-    data = {
-    "code" : 200
-    }
-    return jsonify(data)
+job = {"status": "running"}
 
-@app.route("/data", methods=["GET"])
-def getData():
-    """
-    Absprache mit Dev Teams erforderlich
-    :returns:
-        jsonify(data): Datacube der vom Data Team geliefert wird
-    """
+@app.route("/doJob", methods=["POST"])
+def doJob():
     dataFromPost = request.get_json()
-    print(dataFromPost)
+    #Todo: Eval. Json
+    data = None #Todo: Json fordert Konkrete Daten an. API Aushandeln
+    r = requests.get("http://localhost:443/data", json=data)
+    #Todo: Funktions aufruf was daten bearbeitet
+
     data = None
     return jsonify(data)
+
+@app.route("/jobStatus", methods=["GET"])
+def jobStatus():
+    return jsonify(job)
+
 
 
 def main():
