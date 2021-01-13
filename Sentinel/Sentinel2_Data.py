@@ -1,7 +1,5 @@
-'''
-@author Adrian Spork
-@author Tatjana Melina Walter
-'''
+#@author Adrian Spork
+#@author Tatjana Melina Walter
 
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import geopandas as gpd
@@ -21,43 +19,47 @@ from datetime import datetime
 from zipfile import ZipFile
 
 
-def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, password):
+def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, password, directory):
     '''
-    Downloads the Sentinel2-Data with the given parameters
+    Downloads the Sentinel2 - Data with the given parameters
 
     Parameters:
         aoi (str): The type and the coordinates of the area of interest
-        collectionDate datetime 64 [ns]): The date of the data
+        collectionDate datetime 64[ns]): The date of the data
         plName (str): The name of the platform
         prLevel (str): The name of the process
-        clouds: (tuple of ints) Min and max of cloudcoverpercentage
+        clouds (tuple of ints): Min and max of cloudcoverpercentage
+        username (str): The username of the Copernicus SciHub
+        password (str): The password of the Copernicus SciHub
+        directory (str): Pathlike string to the directory
     '''
-
+    
     api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
-
+    
     '''Choosing the data with bounding box (footprint), date, platformname, processinglevel and cloudcoverpercentage'''
     products = api.query(aoi, date = collectionDate, platformname = plName, processinglevel = prLevel, cloudcoverpercentage = clouds)
 
-    '''Filters the products and sort by cloudcoverpercentage'''
+    '''Filters the products and sorts by cloudcoverpercentage'''
     products_gdf = api.to_geodataframe(products)
     products_gdf_sorted = products_gdf.sort_values(['cloudcoverpercentage'], ascending = [True])
 
     '''Downloads the choosen files from Scihub'''
     products_gdf_sorted.to_csv(os.path.join(directory, 'w'))
     api.download_all(products, directory, max_attempts = 10, checksum = True)
-
-
-def unzipping(filename):
+	
+	
+def unzipping(filename, directory):
     '''
     Unzips the file with the given filename
 
     Parameter:
         filename(str): Name of the .zip file
+        directory (str): Pathlike string to the directory
     '''
     with ZipFile(os.path.join(directory, filename), 'r') as zipObj:
         zipObj.extractall(directory)
-
-
+	
+	
 def unzip(directory):
     '''
     Unzips and deletes the .zip in the given directory
@@ -68,13 +70,13 @@ def unzip(directory):
 
     for filename in os.listdir(directory):
         if filename.endswith(".zip"):
-            unzipping(filename)
+            unzipping(filename, directory)
             delete(os.path.join(directory, filename))
             continue
         else:
             continue
-
-
+	
+	
 def delete(path):
     '''
     Deletes the file/directory with the given path
@@ -90,13 +92,14 @@ def delete(path):
         print("The file does not exist")
 
 
-def extractBands(filename, resolution):
+def extractBands(filename, resolution, directory):
     '''
     Extracts bandpaths from the given .SAFE file
 
     Parameters:
         filename (str): Sentinel .SAFE file
         resolution (int): The resolution the datacube should have
+        directory (str): Pathlike string to the directory
 
     Returns:
         bandPaths (str[]): An array of the paths for the red and nir band
@@ -133,20 +136,21 @@ def extractBands(filename, resolution):
         return -1
 
     return bandPaths
-
-
-def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel):
+	
+	
+def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directory):
     '''
     Opens and reads the red and nir band, saves them as NetCDF file
 
     Parameters:
         bandPaths (str[]): Array with the paths to the red and nir band
-        date (datetime 64 [ns]): The collection date ("2020-12-31")
+        date (datetime 64[ns]): The collection date ("2020-12-31")
         tile (str): Bounding box of coordinates defined by Sentinel
         resolution (int): The resolution of the dataset
         clouds (tuple of ints): Min and max of cloudcoverpercentage
         plName (str): The name of the platform
         prLevel (str): The level of the process
+        directory (str): Pathlike string to the directory
 
     Returns:
         dataset (xArray dataset): The result dataset as xArray dataset
@@ -232,8 +236,8 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel):
     b4.close()
     b8.close()
     return dataset
-
-
+	
+	
 def getDate(filename):
     '''
     Extracts the Date out of the Sentinelfilename
@@ -246,8 +250,8 @@ def getDate(filename):
     '''
 
     return filename[11:15] + "-" + filename[15:17] + "-" + filename[17:19]
-
-
+	
+	
 def getTile(filename):
     '''
     Extracts the UTM-tile of the Sentinelfilename
@@ -259,8 +263,8 @@ def getTile(filename):
         (str): UTM-tile of the File ("31UMC")
     '''
     return filename[38:44]
-
-
+	
+	
 def on_rm_error(func, path, exc_info):
     '''
     Unlinks a read-only file
@@ -268,8 +272,8 @@ def on_rm_error(func, path, exc_info):
 
     os.chmod(path, stat.S_IWRITE)
     os.unlink(path)
-
-
+	
+	
 def buildCube(directory, resolution, clouds, plName, prLevel):
     '''
     Builds a datacube in the given directory with coords, time as dimensions and the bands as datavariables
@@ -284,21 +288,21 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
 
     for filename in os.listdir(directory):
         if filename.endswith(".SAFE"):
-            bandPath = extractBands(os.path.join(directory, filename), resolution)
-            band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel)
+            bandPath = extractBands(os.path.join(directory, filename), resolution, directory)
+            band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel, directory)
             shutil.rmtree(os.path.join(directory, filename), onerror = on_rm_error)
             print(" ")
             continue
         else:
             continue
-
-
+	
+	
 def merge_Sentinel(directory):
     '''
     Merges datacubes by coordinates and time
 
     Parameters:
-        directory (str): Pathlike string where Data ist stored
+        directory (str): Pathlike string where Data is stored
     '''
 
     start = datetime.now()
@@ -331,7 +335,7 @@ def merge_Sentinel(directory):
                     elif file1Date == file2Date and file1Tile == "T32ULC" and file2Tile == "T32UMC" and file1Res == file2Res:
                         fileLeft = xr.open_dataset(os.path.join(directory, file1))
                         fileRight = xr.open_dataset(os.path.join(directory, file2))
-                        merge_coords(fileLeft, fileRight, file1[0:20] + "Merged" + file1[26:31])
+                        merge_coords(fileLeft, fileRight, file1[0:20] + "Merged" + file1[26:31], directory)
                         fileLeft.close()
                         fileRight.close()
                         delete(os.path.join(directory, file1))
@@ -346,7 +350,7 @@ def merge_Sentinel(directory):
             files = os.listdir(directory)
             file1 = xr.open_dataset(os.path.join(directory, files[0]))
             file2 = xr.open_dataset(os.path.join(directory, files[1]))
-            merge_time(file1, file2, files[0][0:31])
+            merge_time(file1, file2, files[0][0:31], directory)
             file1.close()
             file2.close()
             delete(os.path.join(directory, files[1]))
@@ -356,19 +360,19 @@ def merge_Sentinel(directory):
     diff = end - start
     print('All cubes merged for ' + str(diff.seconds) + 's')
     return
-
-
+	
+	
 def timeframe(ds, start, end):
     '''
     Slices Datacube down to given timeframe
 
     Parameters:
-        ds (ds): Sourcedataset
+        ds (xArray Dataset): Sourcedataset
         start (str): Start of the timeframe eg '2018-07-13'
         end (str): End of the timeframe eg '2018-08-23'
 
     Returns:
-        ds_selected (ds): Dataset sliced to timeframe
+        ds_selected (xArray Dataset): Dataset sliced to timeframe
     '''
 
     if start > end:
@@ -376,25 +380,28 @@ def timeframe(ds, start, end):
     else:
         ds_selected = ds.sel(time = slice(start, end))
         return ds_selected
-
-
-def safe_datacube(ds, name):
+	
+	
+def safe_datacube(ds, name, directory):
     '''
     Saves the Datacube as NetCDF (.nc)
 
     Parameters:
-        ds (ds): Sourcedataset
+        ds (xArray Dataset): Sourcedataset
         name (str): Name eg '2017', '2015_2019'
+        directory (str): Pathlike string to the directory
     '''
 
     print("Start saving")
+    start = datetime.now()
     if type(name) != str:
         name = str(name)
     ds.to_netcdf(directory + name + ".nc")
-    print("Done saving")
-
-
-def merge_coords(ds_left, ds_right, name):
+    diff = datetime.now() - start
+    print("Done saving after "+ str(diff.seconds) + 's')
+	
+	
+def merge_coords(ds_left, ds_right, name, directory):
     '''
     Merges two datasets by coordinates
 
@@ -402,15 +409,16 @@ def merge_coords(ds_left, ds_right, name):
         ds_left (xArray dataset): Dataset to be merged
         ds_right (xArray dataset): Dataset to be merged
         name (str): Name of the new dataset
+        directory (str): Pathlike string to the directory
     '''
 
     ds_selected = slice_lon(ds_left, ds_left.lon[0], ds_right.lon[0])
     ds_merge = [ds_selected, ds_right]
     merged = xr.combine_by_coords(ds_merge)
-    safe_datacube(merged, name)
-
-
-def merge_time(ds1, ds2, name):
+    safe_datacube(merged, name, directory)
+	
+	
+def merge_time(ds1, ds2, name, directory):
     '''
     Merges two datasets by time
 
@@ -418,14 +426,15 @@ def merge_time(ds1, ds2, name):
         ds1 (xArray dataset): Dataset to be merged
         ds2 (xArray dataset): Dataset to be merged
         name (str): Name of the new dataset
+        directory (str): Pathlike string to the directory
     '''
 
     res = xr.combine_by_coords([ds1, ds2])
     ds1.close()
     ds2.close()
-    safe_datacube(res, name)
-
-
+    safe_datacube(res, name, directory)
+	
+	
 def slice_lat(ds, lat_left, lat_right):
     '''
     Slices a given dataset to given latitude bounds
@@ -441,15 +450,15 @@ def slice_lat(ds, lat_left, lat_right):
 
     ds_selected = ds.sel(lat = slice(lat_left, lat_right))
     return ds_selected
-
-
+	
+	
 def slice_lon(ds, lon_left, lon_right):
     '''
     Slices a given dataset to given longitude bounds
 
     Parameters:
         ds (xArray Dataset): Dataset to be sliced
-        lon_left (flaot): Left longitude bound
+        lon_left (float): Left longitude bound
         lon_right (float): Right longitude bound
 
     Returns:
@@ -458,8 +467,8 @@ def slice_lon(ds, lon_left, lon_right):
 
     ds_selected = ds.sel(lon = slice(lon_left, lon_right))
     return ds_selected
-
-
+	
+	
 def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
     '''
     Slices a dataset to a given slice
@@ -475,11 +484,11 @@ def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
         ds (xArray Dataset): Sliced dataset
     '''
 
-    ds_selected = slice_lon(ds, lon_left, lon_right)
+    ds_selcted = slice_lon(ds, lon_left, lon_right)
     return slice_lat(ds_selected, lat_left, lat_right)
-
-
-def main(resolution, directory, collectionDate, aoi, clouds, username, password):
+	
+	
+def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password):
     '''
     Downloads, unzips, collects and merges Sentinel2 Satelliteimages to a single netCDF4 datacube
 
@@ -490,26 +499,27 @@ def main(resolution, directory, collectionDate, aoi, clouds, username, password)
         aoi (POLYGON): Area of interest
         clouds (tuple of ints): Min and max of cloudcoverpercentage
         username (str): Uername for the Copernicus Open Acess Hub
+        password (str): Password for the Copernicus Open Acess Hub
     '''
 
     plName = 'Sentinel-2'
     prLevel = 'Level-2A'
-    downloadingData (aoi, collectionDate, plName, prLevel, clouds, username, password)
+    downloadingData (aoi, collectionDate, plName, prLevel, clouds, username, password, directory)
     delete(os.path.join(directory,'w'))
     unzip(directory)
     buildCube(directory, resolution, clouds, plName, prLevel)
     merge_Sentinel(directory)
+	
+	
+##########################################Execution################################
+#directory = 'D:/Tatjana/Documents/Studium/Semester 5 - Abgaben/Geosoftware 2/Code/Sentinel_Data/'
+#resolution = 100    #10, 20, 60, 100 possible
 
+#'''Parameters for the download'''
+#aoi = 'POLYGON((7.52834379254901 52.01238155392252,7.71417925515199 52.01183230436206,7.705255583805303 51.9153349236737,7.521204845259327 51.90983021961716,7.52834379254901 52.01238155392252,7.52834379254901 52.01238155392252))'
+#collectionDate = ('20200601', '20200630')
+#clouds = (0, 30)
+#username = getpass.getpass("user: ")
+#password = getpass.getpass("password: ")
 
-'''Execution'''
-directory = 'D:/Tatjana/Documents/Studium/Semester 5 - Abgaben/Geosoftware 2/Code/Sentinel_Data/'
-resolution = 100    #10, 20, 60, 100 possible
-
-'''Parameters for the download'''
-aoi = 'POLYGON((7.52834379254901 52.01238155392252,7.71417925515199 52.01183230436206,7.705255583805303 51.9153349236737,7.521204845259327 51.90983021961716,7.52834379254901 52.01238155392252,7.52834379254901 52.01238155392252))'
-collectionDate = ('20200601', '20200630')
-clouds = (0, 30)
-username = getpass.getpass("user: ")
-password = getpass.getpass("password: ")
-
-main(resolution, directory, collectionDate, aoi, clouds, username, password)
+#mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password)
