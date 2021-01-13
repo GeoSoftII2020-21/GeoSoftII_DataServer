@@ -475,7 +475,7 @@ def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
         ds (xArray Dataset): Sliced dataset
     '''
 
-    ds_selcted = slice_lon(ds, lon_left, lon_right)
+    ds_selected = slice_lon(ds, lon_left, lon_right)
     return slice_lat(ds_selected, lat_left, lat_right)
 
 
