@@ -1,30 +1,38 @@
 import os
 
 import requests
-from flask import Flask, request, jsonify
-
+from flask import Flask, request, jsonify, Response
+import threading
+import xarray
+import uuid
 docker = False
 
 app = Flask(__name__)
 
-job = {"status": "running"}
+job = {"status": None, "id": None}
 
 
 @app.route("/doJob", methods=["POST"])
 def doJob():
     dataFromPost = request.get_json()
-    # Todo: Eval. Json
-    data = None  # Todo: Json fordert Konkrete Daten an. API Aushandeln
-    # Todo: Funktions aufruf was daten bearbeitet
-
-    data = None
-    return jsonify(data)
+    job["status"] = "processing"
+    t = threading.Thread(target=loadData, args=(dataFromPost,))
+    t.start()
+    return Response(status=200)
 
 
 @app.route("/jobStatus", methods=["GET"])
 def jobStatus():
     return jsonify(job)
 
+def loadData(dataFromPost):
+    #Todo: Sinnvoll machen ?
+    if dataFromPost["arguments"]["DataType"] == "SST":
+        data = xarray.load_dataset("data/sst.day.mean.1984.v2.nc")
+        id = uuid.uuid1()
+        data.to_netcdf("data/"+str(id)+".nc")
+        job["id"] = str(id)
+        job["status"] = "done"
 
 def main():
     """
