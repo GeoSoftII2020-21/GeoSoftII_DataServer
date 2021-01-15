@@ -18,7 +18,7 @@ def load_collection(collection, params):
         yearEnd = params[1]
         directorySST = params[2]
         name = params[3]
-        mainSST(yearBegin, yearEnd, directorySST, name)
+        #mainSST(yearBegin, yearEnd, directorySST, name)
         
     elif collection == "Sentinel2":
         resolution = 100
@@ -28,7 +28,7 @@ def load_collection(collection, params):
         username = params[3]
         password = params[4]
         aoi = 'POLYGON((7.52834379254901 52.01238155392252,7.71417925515199 52.01183230436206,7.705255583805303 51.9153349236737,7.521204845259327 51.90983021961716,7.52834379254901 52.01238155392252,7.52834379254901 52.01238155392252))'
-        mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password)
+        #mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password)
     
     else:
         raise NameError("No Collection named like this")
