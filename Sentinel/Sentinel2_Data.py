@@ -33,9 +33,9 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
         password (str): The password of the Copernicus SciHub
         directory (str): Pathlike string to the directory
     '''
-    
+
     api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
-    
+
     '''Choosing the data with bounding box (footprint), date, platformname, processinglevel and cloudcoverpercentage'''
     products = api.query(aoi, date = collectionDate, platformname = plName, processinglevel = prLevel, cloudcoverpercentage = clouds)
 
@@ -46,8 +46,8 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
     '''Downloads the choosen files from Scihub'''
     products_gdf_sorted.to_csv(os.path.join(directory, 'w'))
     api.download_all(products, directory, max_attempts = 10, checksum = True)
-	
-	
+
+
 def unzipping(filename, directory):
     '''
     Unzips the file with the given filename
@@ -58,8 +58,8 @@ def unzipping(filename, directory):
     '''
     with ZipFile(os.path.join(directory, filename), 'r') as zipObj:
         zipObj.extractall(directory)
-	
-	
+
+
 def unzip(directory):
     '''
     Unzips and deletes the .zip in the given directory
@@ -70,13 +70,17 @@ def unzip(directory):
 
     for filename in os.listdir(directory):
         if filename.endswith(".zip"):
-            unzipping(filename, directory)
-            delete(os.path.join(directory, filename))
-            continue
+            if(filename[39:41]!="32"):
+                print("CRS not supported! Only EPSG:32632 supported") #do not throw an exception here
+                delete(os.path.join(directory,filename))
+            else:
+                unzipping(filename, directory)
+                delete(os.path.join(directory, filename))
+                continue
         else:
             continue
-	
-	
+
+
 def delete(path):
     '''
     Deletes the file/directory with the given path
@@ -136,8 +140,8 @@ def extractBands(filename, resolution, directory):
         return -1
 
     return bandPaths
-	
-	
+
+
 def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directory):
     '''
     Opens and reads the red and nir band, saves them as NetCDF file
@@ -236,8 +240,8 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directo
     b4.close()
     b8.close()
     return dataset
-	
-	
+
+
 def getDate(filename):
     '''
     Extracts the Date out of the Sentinelfilename
@@ -250,8 +254,8 @@ def getDate(filename):
     '''
 
     return filename[11:15] + "-" + filename[15:17] + "-" + filename[17:19]
-	
-	
+
+
 def getTile(filename):
     '''
     Extracts the UTM-tile of the Sentinelfilename
@@ -263,8 +267,8 @@ def getTile(filename):
         (str): UTM-tile of the File ("31UMC")
     '''
     return filename[38:44]
-	
-	
+
+
 def on_rm_error(func, path, exc_info):
     '''
     Unlinks a read-only file
@@ -272,8 +276,8 @@ def on_rm_error(func, path, exc_info):
 
     os.chmod(path, stat.S_IWRITE)
     os.unlink(path)
-	
-	
+
+
 def buildCube(directory, resolution, clouds, plName, prLevel):
     '''
     Builds a datacube in the given directory with coords, time as dimensions and the bands as datavariables
@@ -291,12 +295,11 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
             bandPath = extractBands(os.path.join(directory, filename), resolution, directory)
             band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel, directory)
             shutil.rmtree(os.path.join(directory, filename), onerror = on_rm_error)
-            print(" ")
             continue
         else:
             continue
-	
-	
+
+
 def merge_Sentinel(directory):
     '''
     Merges datacubes by coordinates and time
@@ -322,15 +325,18 @@ def merge_Sentinel(directory):
                 return
             for file2 in files:
                 count2 = 0
-                if file1.endswith(".nc"):
+                if file1.endswith(".nc") and file2.endswith(".nc"):
                     file1Date = file1[9:19]
                     file1Tile = file1[20:26]
                     file1Res = file1[27:31]
                     file2Date = file2[9:19]
                     file2Tile = file2[20:26]
                     file2Res = file2[27:31]
-
-                    if file1Date == file2Date and file1Tile == file2Tile and file1Res == file2Res:
+                    if file1[21:23] == "31":
+                        delete(os.path.join(directory,file1))
+                    elif file2[21:23] == "31":
+                        delete(os.path.join(directory,file2))
+                    elif file1Date == file2Date and file1Tile == file2Tile and file1Res == file2Res:
                         continue
                     elif file1Date == file2Date and file1Tile == "T32ULC" and file2Tile == "T32UMC" and file1Res == file2Res:
                         fileLeft = xr.open_dataset(os.path.join(directory, file1))
@@ -342,26 +348,29 @@ def merge_Sentinel(directory):
                         delete(os.path.join(directory, file2))
                         continue
                 else:
-                    print("Error: Wrong file in directory")
-                    continue
+                    raise TypeError("Wrong file in directory")
+
 
         files = os.listdir(directory)
         while len(os.listdir(directory)) > 1:
             files = os.listdir(directory)
-            file1 = xr.open_dataset(os.path.join(directory, files[0]))
-            file2 = xr.open_dataset(os.path.join(directory, files[1]))
-            merge_time(file1, file2, files[0][0:31], directory)
-            file1.close()
-            file2.close()
-            delete(os.path.join(directory, files[1]))
-            continue
+            if files[0].endswith(".nc") and files[1].endswith(".nc"):
+                file1 = xr.open_dataset(os.path.join(directory, files[0]))
+                file2 = xr.open_dataset(os.path.join(directory, files[1]))
+                merge_time(file1, file2, files[0][0:31], directory)
+                file1.close()
+                file2.close()
+                delete(os.path.join(directory, files[1]))
+                continue
+            else:
+                print("Error: Wrong file in directory")
+                raise TypeError("Wrong file in directory")
 
     end = datetime.now()
     diff = end - start
     print('All cubes merged for ' + str(diff.seconds) + 's')
     return
-	
-	
+
 def timeframe(ds, start, end):
     '''
     Slices Datacube down to given timeframe
@@ -380,8 +389,8 @@ def timeframe(ds, start, end):
     else:
         ds_selected = ds.sel(time = slice(start, end))
         return ds_selected
-	
-	
+
+
 def safe_datacube(ds, name, directory):
     '''
     Saves the Datacube as NetCDF (.nc)
@@ -399,8 +408,8 @@ def safe_datacube(ds, name, directory):
     ds.to_netcdf(directory + name + ".nc")
     diff = datetime.now() - start
     print("Done saving after "+ str(diff.seconds) + 's')
-	
-	
+
+
 def merge_coords(ds_left, ds_right, name, directory):
     '''
     Merges two datasets by coordinates
@@ -416,8 +425,8 @@ def merge_coords(ds_left, ds_right, name, directory):
     ds_merge = [ds_selected, ds_right]
     merged = xr.combine_by_coords(ds_merge)
     safe_datacube(merged, name, directory)
-	
-	
+
+
 def merge_time(ds1, ds2, name, directory):
     '''
     Merges two datasets by time
@@ -433,8 +442,8 @@ def merge_time(ds1, ds2, name, directory):
     ds1.close()
     ds2.close()
     safe_datacube(res, name, directory)
-	
-	
+
+
 def slice_lat(ds, lat_left, lat_right):
     '''
     Slices a given dataset to given latitude bounds
@@ -450,8 +459,8 @@ def slice_lat(ds, lat_left, lat_right):
 
     ds_selected = ds.sel(lat = slice(lat_left, lat_right))
     return ds_selected
-	
-	
+
+
 def slice_lon(ds, lon_left, lon_right):
     '''
     Slices a given dataset to given longitude bounds
@@ -467,8 +476,8 @@ def slice_lon(ds, lon_left, lon_right):
 
     ds_selected = ds.sel(lon = slice(lon_left, lon_right))
     return ds_selected
-	
-	
+
+
 def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
     '''
     Slices a dataset to a given slice
@@ -486,8 +495,8 @@ def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
 
     ds_selected = slice_lon(ds, lon_left, lon_right)
     return slice_lat(ds_selected, lat_left, lat_right)
-	
-	
+
+
 def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password):
     '''
     Downloads, unzips, collects and merges Sentinel2 Satelliteimages to a single netCDF4 datacube
@@ -509,8 +518,8 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
     unzip(directory)
     buildCube(directory, resolution, clouds, plName, prLevel)
     merge_Sentinel(directory)
-	
-	
+
+
 ##########################################Execution################################
 #directory = 'D:/Tatjana/Documents/Studium/Semester 5 - Abgaben/Geosoftware 2/Code/Sentinel_Data/'
 #resolution = 100    #10, 20, 60, 100 possible

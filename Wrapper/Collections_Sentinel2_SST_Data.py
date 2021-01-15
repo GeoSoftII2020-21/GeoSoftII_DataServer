@@ -76,12 +76,15 @@ def unzip(directory):
 
     for filename in os.listdir(directory):
         if filename.endswith(".zip"):
-            unzipping(filename, directory)
-            delete(os.path.join(directory, filename))
-            continue
+            if(filename[39:41]!="32"):
+                print("CRS not supported! Only EPSG:32632 supported") #do not throw an exception here
+                delete(os.path.join(directory,filename))
+            else:
+                unzipping(filename, directory)
+                delete(os.path.join(directory, filename))
+                continue
         else:
             continue
-
 
 def delete(path):
     '''
@@ -297,7 +300,6 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
             bandPath = extractBands(os.path.join(directory, filename), resolution, directory)
             band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel, directory)
             shutil.rmtree(os.path.join(directory, filename), onerror = on_rm_error)
-            print(" ")
             continue
         else:
             continue
@@ -327,15 +329,19 @@ def merge_Sentinel(directory):
             if count1 == len(files):
                 return
             for file2 in files:
-                if file1.endswith(".nc"):
+                count2 = 0
+                if file1.endswith(".nc") and file2.endswith(".nc"):
                     file1Date = file1[9:19]
                     file1Tile = file1[20:26]
                     file1Res = file1[27:31]
                     file2Date = file2[9:19]
                     file2Tile = file2[20:26]
                     file2Res = file2[27:31]
-
-                    if file1Date == file2Date and file1Tile == file2Tile and file1Res == file2Res:
+                    if file1[21:23] == "31":
+                        delete(os.path.join(directory,file1))
+                    elif file2[21:23] == "31":
+                        delete(os.path.join(directory,file2))
+                    elif file1Date == file2Date and file1Tile == file2Tile and file1Res == file2Res:
                         continue
                     elif file1Date == file2Date and file1Tile == "T32ULC" and file2Tile == "T32UMC" and file1Res == file2Res:
                         fileLeft = xr.open_dataset(os.path.join(directory, file1))
@@ -347,18 +353,23 @@ def merge_Sentinel(directory):
                         delete(os.path.join(directory, file2))
                         continue
                 else:
-                    print("Error: Wrong file in directory")
-                    continue
+                    raise TypeError("Wrong file in directory")
 
+
+        files = os.listdir(directory)
         while len(os.listdir(directory)) > 1:
             files = os.listdir(directory)
-            file1 = xr.open_dataset(os.path.join(directory, files[0]))
-            file2 = xr.open_dataset(os.path.join(directory, files[1]))
-            merge_time(file1, file2, files[0][0:31], directory)
-            file1.close()
-            file2.close()
-            delete(os.path.join(directory, files[1]))
-            continue
+            if files[0].endswith(".nc") and files[1].endswith(".nc"):
+                file1 = xr.open_dataset(os.path.join(directory, files[0]))
+                file2 = xr.open_dataset(os.path.join(directory, files[1]))
+                merge_time(file1, file2, files[0][0:31], directory)
+                file1.close()
+                file2.close()
+                delete(os.path.join(directory, files[1]))
+                continue
+            else:
+                print("Error: Wrong file in directory")
+                raise TypeError("Wrong file in directory")
 
     end = datetime.now()
     diff = end - start
@@ -673,8 +684,8 @@ def load_collection(collection, params):
 
 ###############################Execution#############################################
 
-paramsSentinel = ['C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', ('20200601', '20200605'), (0, 30), "", ""]
-load_collection("Sentinel2", paramsSentinel)
+#paramsSentinel = ['C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', ('20200601', '20200605'), (0, 30), "", ""]
+#load_collection("Sentinel2", paramsSentinel)
 
 paramsSST = [2016, 2018, 'C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', 'datacube']
 load_collection("SST", paramsSST)
