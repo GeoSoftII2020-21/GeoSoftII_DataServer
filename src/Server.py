@@ -12,11 +12,11 @@ app = Flask(__name__)
 job = {"status": None, "id": None}
 
 
-@app.route("/doJob", methods=["POST"])
-def doJob():
+@app.route("/doJob/<uuid:id>", methods=["POST"])
+def doJob(id):
     dataFromPost = request.get_json()
     job["status"] = "processing"
-    t = threading.Thread(target=loadData, args=(dataFromPost,))
+    t = threading.Thread(target=loadData, args=(dataFromPost,id,))
     t.start()
     return Response(status=200)
 
@@ -25,13 +25,13 @@ def doJob():
 def jobStatus():
     return jsonify(job)
 
-def loadData(dataFromPost):
+def loadData(dataFromPost, id):
     #Todo: Sinnvoll machen ?
     if dataFromPost["arguments"]["DataType"] == "SST":
         data = xarray.load_dataset("data/sst.day.mean.1984.v2.nc")
-        id = uuid.uuid1()
-        data.to_netcdf("data/"+str(id)+".nc")
-        job["id"] = str(id)
+        subid = uuid.uuid1()
+        data.to_netcdf("data/"+ str(id) + "/" +str(subid)+".nc")
+        job["id"] = str(subid)
         job["status"] = "done"
 
 def main():
