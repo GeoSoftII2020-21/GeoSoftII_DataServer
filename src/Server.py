@@ -6,6 +6,8 @@ import threading
 import xarray
 import uuid
 import shutil
+import datetime
+
 docker = False
 
 app = Flask(__name__)
@@ -17,7 +19,7 @@ job = {"status": None, "id": None}
 def doJob(id):
     dataFromPost = request.get_json()
     job["status"] = "processing"
-    t = threading.Thread(target=loadData, args=(dataFromPost,id,))
+    t = threading.Thread(target=loadData, args=(dataFromPost, id,))
     t.start()
     return Response(status=200)
 
@@ -28,15 +30,23 @@ def jobStatus():
 
 
 def loadData(dataFromPost, id):
-    os.mkdir("/data/"+str(id)+"/data")
-    Collections_Sentinel2_SST_Data.load_collection("SST",[2016,2017,"/data/"+str(id)+"/data/","cube"])
-    #sst.day.mean immer vor dem namen
-    data = xarray.load_dataset("data/"+str(id)+"/data/sst.day.mean.cube.nc")
+    os.mkdir("/data/" + str(id) + "/data")
+    if dataFromPost["arguments"]["DataType"] == "SST":
+        fromDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][0],dataFromPost["arguments"]["timeframe"][2])
+        toDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][1],
+                                              dataFromPost["arguments"]["timeframe"][2])
+        Collections_Sentinel2_SST_Data.load_collection("SST",
+                                                       [fromDate.year, toDate.year, os.path.join("/data/", str(id), "data/"), "cube"])
+    elif dataFromPost["arguments"]["DataType"] == "Sentinel2":
+        print("Todo")
     subid = uuid.uuid1()
-    data.to_netcdf("data/" + str(id) + "/" + str(subid) + ".nc")
-    shutil.rmtree("data/"+str(id)+"/data")
+    fromFile = os.path.join("/data/", str(id), "data/sst.day.mean.cube.nc")
+    toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
+    os.rename(fromFile, toFile)
+    shutil.rmtree("data/" + str(id) + "/data")
     job["id"] = str(subid)
     job["status"] = "done"
+
 
 def main():
     """

@@ -1,5 +1,5 @@
-#@author Adrian Spork
-#@author Tatjana Melina Walter
+# @author Adrian Spork
+# @author Tatjana Melina Walter
 
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import geopandas as gpd
@@ -43,15 +43,16 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
     api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
 
     '''Choosing the data with bounding box (footprint), date, platformname, processinglevel and cloudcoverpercentage'''
-    products = api.query(aoi, date = collectionDate, platformname = plName, processinglevel = prLevel, cloudcoverpercentage = clouds)
+    products = api.query(aoi, date=collectionDate, platformname=plName, processinglevel=prLevel,
+                         cloudcoverpercentage=clouds)
 
     '''Filters the products and sorts by cloudcoverpercentage'''
     products_gdf = api.to_geodataframe(products)
-    products_gdf_sorted = products_gdf.sort_values(['cloudcoverpercentage'], ascending = [True])
+    products_gdf_sorted = products_gdf.sort_values(['cloudcoverpercentage'], ascending=[True])
 
     '''Downloads the choosen files from Scihub'''
     products_gdf_sorted.to_csv(os.path.join(directory, 'w'))
-    api.download_all(products, directory, max_attempts = 10, checksum = True)
+    api.download_all(products, directory, max_attempts=10, checksum=True)
 
 
 def unzipping(filename, directory):
@@ -76,15 +77,16 @@ def unzip(directory):
 
     for filename in os.listdir(directory):
         if filename.endswith(".zip"):
-            if(filename[39:41]!="32"):
-                print("CRS not supported! Only EPSG:32632 supported") #do not throw an exception here
-                delete(os.path.join(directory,filename))
+            if (filename[39:41] != "32"):
+                print("CRS not supported! Only EPSG:32632 supported")  # do not throw an exception here
+                delete(os.path.join(directory, filename))
             else:
                 unzipping(filename, directory)
                 delete(os.path.join(directory, filename))
                 continue
         else:
             continue
+
 
 def delete(path):
     '''
@@ -192,56 +194,57 @@ def loadBand(bandpath, date, tile, resolution, clouds, plName, prLevel, director
         i = i + 1
         j = j - 1
 
-    time = pd.date_range(date, periods = 1)
+    time = pd.date_range(date, periods=1)
 
     if resolution == 100:
-        upscale_factor = (1/5)
+        upscale_factor = (1 / 5)
         nir = b8.read(
-                out_shape = (
-                    b8.count,
-                    int(b8.height * upscale_factor),
-                    int(b8.width * upscale_factor)
-                ),
-                resampling = Resampling.bilinear
+            out_shape=(
+                b8.count,
+                int(b8.height * upscale_factor),
+                int(b8.width * upscale_factor)
+            ),
+            resampling=Resampling.bilinear
         )
-#        transform = b8.transform * b8.transform.scale(
-#            (b8.width / nir.shape[-1]),
-#            (b8.height / nir.shape[-2])
-#        )
+        #        transform = b8.transform * b8.transform.scale(
+        #            (b8.width / nir.shape[-1]),
+        #            (b8.height / nir.shape[-2])
+        #        )
         red = b4.read(
-            out_shape = (
+            out_shape=(
                 b4.count,
                 int(b4.height * upscale_factor),
                 int(b4.width * upscale_factor)
             ),
-            resampling = Resampling.bilinear
+            resampling=Resampling.bilinear
         )
 
- #       transform = b4.transform * b4.transform.scale(
- #           (b4.width / red.shape[-1]),
- #           (b4.height / red.shape[-2])
- #       )
+    #       transform = b4.transform * b4.transform.scale(
+    #           (b4.width / red.shape[-1]),
+    #           (b4.height / red.shape[-2])
+    #       )
 
     dataset = xr.Dataset(
         {
             "red": (["time", "lat", "lon"], red),
             "nir": (["time", "lat", "lon"], nir)
         },
-        coords = dict(
-            time = time,
-            lat = (["lat"], lat),
-            lon = (["lon"], lon),
+        coords=dict(
+            time=time,
+            lat=(["lat"], lat),
+            lon=(["lon"], lon),
         ),
-        attrs = dict(
-            platform = plName,
-            processingLevel = prLevel,
-            cloudcover = clouds,
-            source = "https://scihub.copernicus.eu/dhus",
-            resolution = str(resolution) + " x " + str(resolution) + " m"
+        attrs=dict(
+            platform=plName,
+            processingLevel=prLevel,
+            cloudcover=clouds,
+            source="https://scihub.copernicus.eu/dhus",
+            resolution=str(resolution) + " x " + str(resolution) + " m"
         ),
     )
 
-    dataset.to_netcdf(directory + "datacube_" + str(date) + "_" + str(tile) + "_R" + str(resolution) + ".nc", 'w', format = 'NETCDF4')
+    dataset.to_netcdf(directory + "datacube_" + str(date) + "_" + str(tile) + "_R" + str(resolution) + ".nc", 'w',
+                      format='NETCDF4')
     b4.close()
     b8.close()
     return dataset
@@ -298,8 +301,9 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
     for filename in os.listdir(directory):
         if filename.endswith(".SAFE"):
             bandPath = extractBands(os.path.join(directory, filename), resolution, directory)
-            band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel, directory)
-            shutil.rmtree(os.path.join(directory, filename), onerror = on_rm_error)
+            band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel,
+                            directory)
+            shutil.rmtree(os.path.join(directory, filename), onerror=on_rm_error)
             continue
         else:
             continue
@@ -338,9 +342,9 @@ def merge_Sentinel(directory):
                     file2Tile = file2[20:26]
                     file2Res = file2[27:31]
                     if file1[21:23] == "31":
-                        delete(os.path.join(directory,file1))
+                        delete(os.path.join(directory, file1))
                     elif file2[21:23] == "31":
-                        delete(os.path.join(directory,file2))
+                        delete(os.path.join(directory, file2))
                     elif file1Date == file2Date and file1Tile == file2Tile and file1Res == file2Res:
                         continue
                     elif file1Date == file2Date and file1Tile == "T32ULC" and file2Tile == "T32UMC" and file1Res == file2Res:
@@ -354,7 +358,6 @@ def merge_Sentinel(directory):
                         continue
                 else:
                     raise TypeError("Wrong file in directory")
-
 
         files = os.listdir(directory)
         while len(os.listdir(directory)) > 1:
@@ -393,7 +396,7 @@ def timeframe(ds, start, end):
     if start > end:
         print("start and end of the timeframe are not compatible!")
     else:
-        ds_selected = ds.sel(time = slice(start, end))
+        ds_selected = ds.sel(time=slice(start, end))
         return ds_selected
 
 
@@ -413,7 +416,7 @@ def safe_datacube(ds, name, directory):
         name = str(name)
     ds.to_netcdf(directory + name + ".nc")
     diff = datetime.now() - start
-    print("Done saving after "+ str(diff.seconds) + 's')
+    print("Done saving after " + str(diff.seconds) + 's')
 
 
 def merge_coords(ds_left, ds_right, name, directory):
@@ -463,7 +466,7 @@ def slice_lat(ds, lat_left, lat_right):
         ds (xArray Dataset): Sliced dataset
     '''
 
-    ds_selected = ds.sel(lat = slice(lat_left, lat_right))
+    ds_selected = ds.sel(lat=slice(lat_left, lat_right))
     return ds_selected
 
 
@@ -480,7 +483,7 @@ def slice_lon(ds, lon_left, lon_right):
         ds (xArray Dataset): Sliced dataset
     '''
 
-    ds_selected = ds.sel(lon = slice(lon_left, lon_right))
+    ds_selected = ds.sel(lon=slice(lon_left, lon_right))
     return ds_selected
 
 
@@ -553,7 +556,8 @@ def download_file(year, directorySST):
             end = datetime.now()
             diff = end - start
             print('File downloaded ' + str(diff.seconds) + 's')
-        else: counter += 1
+        else:
+            counter += 1
 
         if counter == len(files):
             print('No matching dataset found for this year')
@@ -582,10 +586,10 @@ def merge_datacubes(ds_merge):
         count = 1
         while count < len(ds_merge):
             start1 = datetime.now()
-            ds1 =  xr.combine_by_coords([ds1, ds_merge[count]])
+            ds1 = xr.combine_by_coords([ds1, ds_merge[count]], combine_attrs="override")
             count += 1
             diff = datetime.now() - start1
-            print("Succesfully merged cube nr " + str(count) + " to the base cube in "+ str(diff.seconds) + 's')
+            print("Succesfully merged cube nr " + str(count) + " to the base cube in " + str(diff.seconds) + 's')
         diff = datetime.now() - start
         print('All cubes merged for ' + str(diff.seconds) + 's')
         return ds1
@@ -681,16 +685,10 @@ def load_collection(collection, params):
     else:
         raise NameError("No Collection named like this")
 
+###############################Example#############################################
 
-###############################Execution#############################################
+# paramsSentinel = ['C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', ('20200601', '20200605'), (0, 30), "", ""]
+# load_collection("Sentinel2", paramsSentinel)
 
-#paramsSentinel = ['C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', ('20200601', '20200605'), (0, 30), "Username", "Password"]
-#load_collection("Sentinel2", paramsSentinel)
-#0-30 ist cloudcoverage
-#Dateiname: dynamischg generiert in leerem Ordner
-#Hier können daten Tag genau abgerufen
-
-#paramsSST = [2016, 2018, 'C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', 'datacube']
-#Hier nur Jahr
-#Leere Ordner
-#load_collection("SST", paramsSST)
+# paramsSST = [2016, 2018, 'C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', 'datacube']
+# load_collection("SST", paramsSST)
