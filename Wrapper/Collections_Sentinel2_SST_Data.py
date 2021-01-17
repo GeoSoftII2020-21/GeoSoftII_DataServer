@@ -582,7 +582,7 @@ def merge_datacubes(ds_merge):
         count = 1
         while count < len(ds_merge):
             start1 = datetime.now()
-            ds1 =  xr.combine_by_coords([ds1, ds_merge[count]])
+            ds1 =  xr.combine_by_coords([ds1, ds_merge[count]], combine_attrs="override")
             count += 1
             diff = datetime.now() - start1
             print("Succesfully merged cube nr " + str(count) + " to the base cube in "+ str(diff.seconds) + 's')
