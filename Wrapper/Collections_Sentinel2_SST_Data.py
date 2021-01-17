@@ -682,10 +682,10 @@ def load_collection(collection, params):
         raise NameError("No Collection named like this")
 
 
-###############################Execution#############################################
+###############################Example#############################################
 
 #paramsSentinel = ['C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', ('20200601', '20200605'), (0, 30), "", ""]
 #load_collection("Sentinel2", paramsSentinel)
 
-paramsSST = [2016, 2018, 'C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', 'datacube']
-load_collection("SST", paramsSST)
+#paramsSST = [2016, 2018, 'C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', 'datacube']
+#load_collection("SST", paramsSST)

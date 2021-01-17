@@ -151,7 +151,7 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
                     continue
 
 
-##################################Execution#############################################
+##################################Example#############################################
 #yearBegin = 2016
 #yearEnd = 2017
 #directorySST = 'D:/Tatjana/Documents/Studium/Semester 5 - Abgaben/Geosoftware 2/Code/SST_Data/'
