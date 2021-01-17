@@ -131,7 +131,7 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
             download_file(i, directorySST)
             i = i + 1
         if yearBegin == yearEnd:
-                print("Nothing to merge")
+            os.rename(os.path.join(directorySST, os.listdir(directorySST)[0]),directorySST + "sst.day.mean." + name + ".nc")
         else:
             ds_merge = []
             for filename in os.listdir(directorySST):
