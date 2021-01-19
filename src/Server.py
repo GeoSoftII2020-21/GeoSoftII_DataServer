@@ -12,7 +12,7 @@ docker = False
 
 app = Flask(__name__)
 
-job = {"status": None, "id": None}
+job = {"status": None, "id": None, "jobid": None}
 
 
 @app.route("/doJob/<uuid:id>", methods=["POST"])
@@ -30,13 +30,21 @@ def jobStatus():
 
 
 def loadData(dataFromPost, id):
+    job["status"] = "running"
+    job["jobid"] = str(id)
     os.mkdir("/data/" + str(id) + "/data")
     if dataFromPost["arguments"]["DataType"] == "SST":
         fromDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][0],dataFromPost["arguments"]["timeframe"][2])
         toDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][1],
                                               dataFromPost["arguments"]["timeframe"][2])
-        Collections_Sentinel2_SST_Data.load_collection("SST",
-                                                       [fromDate.year, toDate.year, os.path.join("/data/", str(id), "data/"), "cube"])
+        try:
+            Collections_Sentinel2_SST_Data.load_collection("SST",
+                                                           [fromDate.year, toDate.year,
+                                                            os.path.join("/data/", str(id), "data/"), "cube"])
+        except ValueError:
+            job["status"] = "failed"
+            print("Job Gescheitert!")
+            return
         subid = uuid.uuid1()
         fromFile = os.path.join("/data/", str(id), "data/sst.day.mean.cube.nc")
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
