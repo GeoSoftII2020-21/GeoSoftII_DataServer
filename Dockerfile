@@ -1,9 +1,14 @@
 #Python Version
-FROM python:3.8.6
+FROM python:3.9.1
 
 #Kopiere requirements
 COPY req.txt .
 
+#Installiere Abhänhigkeiten  für GDAL
+RUN apt update && apt install -y --no-install-recommends \
+        libgdal-dev \
+        gcc && \
+rm -rf /var/lib/apt/lists/*
 #Installiere Abhängigkeiten
 RUN pip install -r req.txt
 

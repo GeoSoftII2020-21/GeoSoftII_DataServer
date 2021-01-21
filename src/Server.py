@@ -59,8 +59,14 @@ def loadData(dataFromPost, id):
                                             dataFromPost["arguments"]["timeframe"][2])
         fromDate = fromDate.strftime("%Y%m%d")
         toDate = toDate.strftime("%Y%m%d")
-        params = [os.path.join("data/",str(id),"data"),(fromDate,toDate),(dataFromPost["arguments"]["cloudcoverage"][0],dataFromPost["arguments"]["cloudcoverage"][1]),dataFromPost["arguments"]["Login"][0],dataFromPost["arguments"]["Login"][1]]
+        params = [os.path.join("data/",str(id),"data/"),(fromDate,toDate),(dataFromPost["arguments"]["cloudcoverage"][0],dataFromPost["arguments"]["cloudcoverage"][1]),dataFromPost["arguments"]["Login"][0],dataFromPost["arguments"]["Login"][1]]
         Collections_Sentinel2_SST_Data.load_collection("Sentinel2",params)
+        x = os.listdir("data/"+str(id)+"/data")
+        subid = uuid.uuid1()
+        toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
+        os.rename("data/"+str(id)+"/data/"+str(x[0]), toFile)
+        job["id"] = str(subid)
+        job["status"] = "done"
 
 
 def main():

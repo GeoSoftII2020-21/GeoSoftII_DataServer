@@ -51,7 +51,11 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
 
     '''Downloads the choosen files from Scihub'''
     products_gdf_sorted.to_csv(os.path.join(directory, 'w'))
-    api.download_all(products, directory, max_attempts = 10, checksum = True)
+    try:
+        api.download_all(products, directory, max_attempts = 10, checksum = True)
+    except:
+        pass
+
 
 
 def unzipping(filename, directory):
@@ -297,7 +301,7 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
 
     for filename in os.listdir(directory):
         if filename.endswith(".SAFE"):
-            bandPath = extractBands(os.path.join(directory, filename), resolution, directory)
+            bandPath = extractBands( filename, resolution, directory)
             band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel, directory)
             shutil.rmtree(os.path.join(directory, filename), onerror = on_rm_error)
             continue
