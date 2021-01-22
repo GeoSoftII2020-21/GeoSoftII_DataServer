@@ -65,6 +65,7 @@ def loadData(dataFromPost, id):
         subid = uuid.uuid1()
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
         os.rename("data/"+str(id)+"/data/"+str(x[0]), toFile)
+        shutil.rmtree("data/" + str(id) + "/data")
         job["id"] = str(subid)
         job["status"] = "done"
 
