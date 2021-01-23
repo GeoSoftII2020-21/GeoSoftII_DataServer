@@ -33,19 +33,18 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
         password (str): The password of the Copernicus SciHub
         directory (str): Pathlike string to the directory
     '''
-
+    
     api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
-
+    
     '''Choosing the data with bounding box (footprint), date, platformname, processinglevel and cloudcoverpercentage'''
     products = api.query(aoi, date = collectionDate, platformname = plName, processinglevel = prLevel, cloudcoverpercentage = clouds)
 
-    '''Filters the products and sorts by cloudcoverpercentage'''
-    products_gdf = api.to_geodataframe(products)
-    products_gdf_sorted = products_gdf.sort_values(['cloudcoverpercentage'], ascending = [True])
-
     '''Downloads the choosen files from Scihub'''
-    products_gdf_sorted.to_csv(os.path.join(directory, 'w'))
+    if len(products)==0:
+        raise Exception("No data for this params")
+    print("Start downloading " + str(len(products)) + " product(s)")
     api.download_all(products, directory, max_attempts = 10, checksum = True)
+    print("All necassary downloads done")
 
 
 def unzipping(filename, directory):
@@ -159,7 +158,7 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directo
     Returns:
         dataset (xArray dataset): The result dataset as xArray dataset
     '''
-
+    
     b4 = rio.open(bandpath[0])
     b8 = rio.open(bandpath[1])
     red = b4.read()
@@ -230,7 +229,6 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directo
         attrs = dict(
             platform = plName,
             processingLevel = prLevel,
-            cloudcover = clouds,
             source = "https://scihub.copernicus.eu/dhus",
             resolution = str(resolution) + " x " + str(resolution) + " m"
         ),
@@ -348,8 +346,8 @@ def merge_Sentinel(directory):
                         delete(os.path.join(directory, file2))
                         continue
                 else:
-                    raise TypeError("Wrong file in directory")
-
+                    raise TypeError("Wrong file in directory") 
+                    
 
         files = os.listdir(directory)
         while len(os.listdir(directory)) > 1:
@@ -364,7 +362,7 @@ def merge_Sentinel(directory):
                 continue
             else:
                 print("Error: Wrong file in directory")
-                raise TypeError("Wrong file in directory")
+                raise TypeError("Wrong file in directory") 
 
     end = datetime.now()
     diff = end - start
@@ -510,11 +508,11 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
         username (str): Uername for the Copernicus Open Acess Hub
         password (str): Password for the Copernicus Open Acess Hub
     '''
-
+    if collectionDate[0]==collectionDate[1]:
+        raise Exception("Start and end of collection can not be identical")
     plName = 'Sentinel-2'
     prLevel = 'Level-2A'
     downloadingData (aoi, collectionDate, plName, prLevel, clouds, username, password, directory)
-    delete(os.path.join(directory,'w'))
     unzip(directory)
     buildCube(directory, resolution, clouds, plName, prLevel)
     merge_Sentinel(directory)

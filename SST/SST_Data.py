@@ -17,12 +17,12 @@ import os
 def download_file(year, directorySST):
     '''
     Downloads the sst data file for the given year
-
+    
     Parameters:
         year (int): The year the sst is needed
         directorySST (str): Pathlike string to the directory
    '''
-
+    
     start = datetime.now()
     ftp = FTP('ftp.cdc.noaa.gov')
     ftp.login()
@@ -34,13 +34,13 @@ def download_file(year, directorySST):
     for file in files:
         if file == 'sst.day.mean.' + str(year) + '.nc':
             print("Downloading... " + file)
-            ftp.retrbinary("RETR " + file, open(directorySST + file, 'wb').write)
+            ftp.retrbinary("RETR " + file, open(directorySST + file, 'wb').write)      
             ftp.close()
             end = datetime.now()
             diff = end - start
             print('File downloaded ' + str(diff.seconds) + 's')
         else: counter += 1
-
+    
         if counter == len(files):
             print('No matching dataset found for this year')
 
@@ -48,14 +48,14 @@ def download_file(year, directorySST):
 def merge_datacubes(ds_merge):
     '''
     Merges datacubes by coordinates
-
+    
     Parameters:
         ds_merge (xArray Dataset[]): Array of datasets to be merged
-
-    Returns:
+        
+    Returns: 
         ds1 (xArray Dataset): A single datacube with all merged datacubes
     '''
-
+    
     start = datetime.now()
     if len(ds_merge) == 0:
         print("Error: No datacubes to merge")
@@ -121,16 +121,25 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
         directorySST (str): Pathlike string to the directory
         name (str): Name or timeframe for saving eg 'datacube', '2015_2019'
     '''
-
+        
     if yearBegin > yearEnd:
         print("Wrong years")
     else:
         i = yearBegin
         j = 0
         while i <= yearEnd:
-            download_file(i, directorySST)
-            i = i + 1
-        if yearBegin == yearEnd:
+            fileExists = False
+            for file in os.listdir(directorySST):
+                if file == ("sst.day.mean." + str(i) + ".nc"):
+                        fileExists = True
+            if fileExists:
+                print("file "+ str(i) +" already exists: No Download necessary")
+                i = i + 1
+            else:
+                download_file(i, directorySST)
+                i = i + 1
+
+        if len(os.listdir(directorySST))==1:
             os.rename(os.path.join(directorySST, os.listdir(directorySST)[0]),directorySST + "sst.day.mean." + name + ".nc")
         else:
             ds_merge = []
@@ -138,9 +147,7 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
                 cube = xr.open_dataset(os.path.join(directorySST, filename))
                 ds_merge.append(cube)
                 j = j + 1
-            datacube = merge_datacubes(ds_merge)
-            safe_datacubeSST(datacube, name, directorySST)
-            datacube.close()
+            datacube = merge_datacubes(ds_merge)          
             for file in ds_merge:
                 file.close()
             for file in os.listdir(directorySST):
@@ -149,6 +156,9 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
                 else:
                     delete(os.path.join(directorySST, file))
                     continue
+            print(datacube)
+            safe_datacubeSST(datacube, name, directorySST)
+            datacube.close()
 
 
 ##################################Example#############################################
