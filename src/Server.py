@@ -12,14 +12,14 @@ docker = False
 
 app = Flask(__name__)
 
-job = {"status": None, "id": None, "jobid": None}
+job = {"status": None, "id": None, "jobid": None, "errorType":None}
 
 
 @app.route("/doJob/<uuid:id>", methods=["POST"])
 def doJob(id):
     dataFromPost = request.get_json()
     job["status"] = "processing"
-    t = threading.Thread(target=loadData, args=(dataFromPost, id,))
+    t = threading.Thread(target=wrapper, args=(dataFromPost, id,))
     t.start()
     return Response(status=200)
 
@@ -28,6 +28,14 @@ def doJob(id):
 def jobStatus():
     return jsonify(job)
 
+
+def wrapper(dataFromPost, id):
+    try:
+        loadData(dataFromPost, id)
+    except:
+        job["status"] = "error"
+        job["errorType"] = "Unkown Error"
+        return
 
 def loadData(dataFromPost, id):
     job["status"] = "running"
@@ -41,9 +49,9 @@ def loadData(dataFromPost, id):
             Collections_Sentinel2_SST_Data.load_collection("SST",
                                                            [fromDate.year, toDate.year,
                                                             os.path.join("/data/", str(id), "data/"), "cube"])
-        except ValueError:
-            job["status"] = "failed"
-            print("Job Gescheitert!")
+        except:
+            job["status"] = "error"
+            job["errorType"] = "Unkown Error"
             return
         subid = uuid.uuid1()
         fromFile = os.path.join("/data/", str(id), "data/sst.day.mean.cube.nc")
@@ -60,7 +68,12 @@ def loadData(dataFromPost, id):
         fromDate = fromDate.strftime("%Y%m%d")
         toDate = toDate.strftime("%Y%m%d")
         params = [os.path.join("data/",str(id),"data/"),(fromDate,toDate),(dataFromPost["arguments"]["cloudcoverage"][0],dataFromPost["arguments"]["cloudcoverage"][1]),dataFromPost["arguments"]["Login"][0],dataFromPost["arguments"]["Login"][1]]
-        Collections_Sentinel2_SST_Data.load_collection("Sentinel2",params)
+        try:
+            Collections_Sentinel2_SST_Data.load_collection("Sentinel2", params)
+        except:
+            job["status"] = "error"
+            job["errorType"] = "Unkown Error"
+            return
         x = os.listdir("data/"+str(id)+"/data")
         subid = uuid.uuid1()
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
