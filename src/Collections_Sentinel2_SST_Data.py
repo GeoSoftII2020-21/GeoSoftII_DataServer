@@ -22,6 +22,7 @@ import urllib.request as request
 from contextlib import closing
 from ftplib import FTP
 
+import sys
 
 ##############################Sentinel2##################################################
 
@@ -31,7 +32,7 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
 
     Parameters:
         aoi (str): The type and the coordinates of the area of interest
-        collectionDate (datetime 64[ns]): The date of the data
+        collectionDate datetime 64[ns]): The date of the data
         plName (str): The name of the platform
         prLevel (str): The name of the process
         clouds (tuple of ints): Min and max of cloudcoverpercentage
@@ -39,23 +40,18 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
         password (str): The password of the Copernicus SciHub
         directory (str): Pathlike string to the directory
     '''
-
+    
     api = SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
-
+    
     '''Choosing the data with bounding box (footprint), date, platformname, processinglevel and cloudcoverpercentage'''
     products = api.query(aoi, date = collectionDate, platformname = plName, processinglevel = prLevel, cloudcoverpercentage = clouds)
 
-    '''Filters the products and sorts by cloudcoverpercentage'''
-    products_gdf = api.to_geodataframe(products)
-    products_gdf_sorted = products_gdf.sort_values(['cloudcoverpercentage'], ascending = [True])
-
     '''Downloads the choosen files from Scihub'''
-    products_gdf_sorted.to_csv(os.path.join(directory, 'w'))
-    try:
-        api.download_all(products, directory, max_attempts = 10, checksum = True)
-    except:
-        pass
-
+    if len(products)==0:
+        raise Exception("No data for this params")
+    print("Start downloading " + str(len(products)) + " product(s)", file=sys.stderr)
+    api.download_all(products, directory, max_attempts = 10, checksum = True)
+    print("All necassary downloads done", file=sys.stderr)
 
 
 def unzipping(filename, directory):
@@ -81,7 +77,7 @@ def unzip(directory):
     for filename in os.listdir(directory):
         if filename.endswith(".zip"):
             if(filename[39:41]!="32"):
-                print("CRS not supported! Only EPSG:32632 supported") #do not throw an exception here
+                print("CRS not supported! Only EPSG:32632 supported", file=sys.stderr) #do not throw an exception here
                 delete(os.path.join(directory,filename))
             else:
                 unzipping(filename, directory)
@@ -100,9 +96,9 @@ def delete(path):
 
     if os.path.exists(path):
         os.remove(path)
-        print("File deleted: " + path)
+        print("File deleted: " + path, file=sys.stderr)
     else:
-        print("The file does not exist")
+        print("The file does not exist", file=sys.stderr)
 
 
 def extractBands(filename, resolution, directory):
@@ -145,18 +141,18 @@ def extractBands(filename, resolution, directory):
         bandPaths = [pathRed, pathNIR]
 
     else:
-        print("No such resolution")
+        print("No such resolution", file=sys.stderr)
         return -1
 
     return bandPaths
 
 
-def loadBand(bandpath, date, tile, resolution, clouds, plName, prLevel, directory):
+def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directory):
     '''
     Opens and reads the red and nir band, saves them as NetCDF file
 
     Parameters:
-        bandpath (str[]): Array with the paths to the red and nir band
+        bandPaths (str[]): Array with the paths to the red and nir band
         date (datetime 64[ns]): The collection date ("2020-12-31")
         tile (str): Bounding box of coordinates defined by Sentinel
         resolution (int): The resolution of the dataset
@@ -168,7 +164,7 @@ def loadBand(bandpath, date, tile, resolution, clouds, plName, prLevel, director
     Returns:
         dataset (xArray dataset): The result dataset as xArray dataset
     '''
-
+    
     b4 = rio.open(bandpath[0])
     b8 = rio.open(bandpath[1])
     red = b4.read()
@@ -183,7 +179,7 @@ def loadBand(bandpath, date, tile, resolution, clouds, plName, prLevel, director
     elif resolution == 100:
         res = 1098
     else:
-        print("No such resolution")
+        print("No such resolution", file=sys.stderr)
         return -1
 
     j = res - 1
@@ -208,10 +204,10 @@ def loadBand(bandpath, date, tile, resolution, clouds, plName, prLevel, director
                 ),
                 resampling = Resampling.bilinear
         )
-#        transform = b8.transform * b8.transform.scale(
-#            (b8.width / nir.shape[-1]),
-#            (b8.height / nir.shape[-2])
-#        )
+        transform = b8.transform * b8.transform.scale(
+            (b8.width / nir.shape[-1]),
+            (b8.height / nir.shape[-2])
+        )
         red = b4.read(
             out_shape = (
                 b4.count,
@@ -221,15 +217,15 @@ def loadBand(bandpath, date, tile, resolution, clouds, plName, prLevel, director
             resampling = Resampling.bilinear
         )
 
- #       transform = b4.transform * b4.transform.scale(
- #           (b4.width / red.shape[-1]),
- #           (b4.height / red.shape[-2])
- #       )
+        transform = b4.transform * b4.transform.scale(
+            (b4.width / red.shape[-1]),
+            (b4.height / red.shape[-2])
+        )
 
     dataset = xr.Dataset(
         {
-            "red": (["time", "lat", "lon"], red),
-            "nir": (["time", "lat", "lon"], nir)
+            "red": (["time","lat", "lon"], red),
+            "nir": (["time","lat", "lon"], nir)
         },
         coords = dict(
             time = time,
@@ -239,7 +235,6 @@ def loadBand(bandpath, date, tile, resolution, clouds, plName, prLevel, director
         attrs = dict(
             platform = plName,
             processingLevel = prLevel,
-            cloudcover = clouds,
             source = "https://scihub.copernicus.eu/dhus",
             resolution = str(resolution) + " x " + str(resolution) + " m"
         ),
@@ -301,7 +296,7 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
 
     for filename in os.listdir(directory):
         if filename.endswith(".SAFE"):
-            bandPath = extractBands( filename, resolution, directory)
+            bandPath = extractBands(filename, resolution, directory)
             band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel, directory)
             shutil.rmtree(os.path.join(directory, filename), onerror = on_rm_error)
             continue
@@ -322,13 +317,13 @@ def merge_Sentinel(directory):
     files = os.listdir(directory)
 
     if len(files) == 0:
-        print("Directory empty")
+        print("Directory empty", file=sys.stderr)
         return
     elif len(files) == 1:
-        print("Only one file in directory")
+        print("Only one file in directory", file=sys.stderr)
         return
     else:
-        print('Start merging')
+        print('Start merging', file=sys.stderr)
         for file1 in files:
             if count1 == len(files):
                 return
@@ -372,12 +367,12 @@ def merge_Sentinel(directory):
                 delete(os.path.join(directory, files[1]))
                 continue
             else:
-                print("Error: Wrong file in directory")
+                print("Error: Wrong file in directory", file=sys.stderr)
                 raise TypeError("Wrong file in directory")
 
     end = datetime.now()
     diff = end - start
-    print('All cubes merged for ' + str(diff.seconds) + 's')
+    print('All cubes merged for ' + str(diff.seconds) + 's', file=sys.stderr)
     return
 
 
@@ -395,7 +390,7 @@ def timeframe(ds, start, end):
     '''
 
     if start > end:
-        print("start and end of the timeframe are not compatible!")
+        print("start and end of the timeframe are not compatible!", file=sys.stderr)
     else:
         ds_selected = ds.sel(time = slice(start, end))
         return ds_selected
@@ -411,13 +406,13 @@ def safe_datacube(ds, name, directory):
         directory (str): Pathlike string to the directory
     '''
 
-    print("Start saving")
+    print("Start saving", file=sys.stderr)
     start = datetime.now()
     if type(name) != str:
         name = str(name)
     ds.to_netcdf(directory + name + ".nc")
     diff = datetime.now() - start
-    print("Done saving after "+ str(diff.seconds) + 's')
+    print("Done saving after "+ str(diff.seconds) + 's', file=sys.stderr)
 
 
 def merge_coords(ds_left, ds_right, name, directory):
@@ -520,11 +515,11 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
         username (str): Uername for the Copernicus Open Acess Hub
         password (str): Password for the Copernicus Open Acess Hub
     '''
-
+    if collectionDate[0]==collectionDate[1]:
+        raise Exception("Start and end of collection can not be identical")
     plName = 'Sentinel-2'
     prLevel = 'Level-2A'
-    downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, password, directory)
-    delete(os.path.join(directory, 'w'))
+    downloadingData (aoi, collectionDate, plName, prLevel, clouds, username, password, directory)
     unzip(directory)
     buildCube(directory, resolution, clouds, plName, prLevel)
     merge_Sentinel(directory)
@@ -535,12 +530,12 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
 def download_file(year, directorySST):
     '''
     Downloads the sst data file for the given year
-
+    
     Parameters:
         year (int): The year the sst is needed
         directorySST (str): Pathlike string to the directory
    '''
-
+    
     start = datetime.now()
     ftp = FTP('ftp.cdc.noaa.gov')
     ftp.login()
@@ -551,37 +546,37 @@ def download_file(year, directorySST):
 
     for file in files:
         if file == 'sst.day.mean.' + str(year) + '.nc':
-            print("Downloading... " + file)
-            ftp.retrbinary("RETR " + file, open(directorySST + file, 'wb').write)
+            print("Downloading... " + file, file=sys.stderr)
+            ftp.retrbinary("RETR " + file, open(directorySST + file, 'wb').write)      
             ftp.close()
             end = datetime.now()
             diff = end - start
-            print('File downloaded ' + str(diff.seconds) + 's')
+            print('File downloaded ' + str(diff.seconds) + 's', file=sys.stderr)
         else: counter += 1
-
+    
         if counter == len(files):
-            print('No matching dataset found for this year')
+            print('No matching dataset found for this year', file=sys.stderr)
 
 
 def merge_datacubes(ds_merge):
     '''
     Merges datacubes by coordinates
-
+    
     Parameters:
         ds_merge (xArray Dataset[]): Array of datasets to be merged
-
-    Returns:
+        
+    Returns: 
         ds1 (xArray Dataset): A single datacube with all merged datacubes
     '''
-
+    
     start = datetime.now()
     if len(ds_merge) == 0:
-        print("Error: No datacubes to merge")
+        print("Error: No datacubes to merge", file=sys.stderr)
         return
     if len(ds_merge) == 1:
         return ds_merge[0]
     else:
-        print('Start merging')
+        print('Start merging', file=sys.stderr)
         ds1 = ds_merge[0]
         count = 1
         while count < len(ds_merge):
@@ -589,10 +584,25 @@ def merge_datacubes(ds_merge):
             ds1 =  xr.combine_by_coords([ds1, ds_merge[count]], combine_attrs="override")
             count += 1
             diff = datetime.now() - start1
-            print("Succesfully merged cube nr " + str(count) + " to the base cube in "+ str(diff.seconds) + 's')
+            print("Succesfully merged cube nr " + str(count) + " to the base cube in "+ str(diff.seconds) + 's', file=sys.stderr)
         diff = datetime.now() - start
-        print('All cubes merged for ' + str(diff.seconds) + 's')
+        print('All cubes merged for ' + str(diff.seconds) + 's', file=sys.stderr)
         return ds1
+
+
+def delete(path):
+    '''
+    Deletes the file/directory with the given path
+
+    Parameters:
+        path (str): Path to the file/directory
+    '''
+
+    if os.path.exists(path):
+        os.remove(path)
+        print("File deleted: " + path, file=sys.stderr)
+    else:
+        print("The file does not exist", file=sys.stderr)
 
 
 def safe_datacubeSST(ds, name, directorySST):
@@ -605,13 +615,13 @@ def safe_datacubeSST(ds, name, directorySST):
         directorySST (str): Pathlike string to the directory
     '''
 
-    print("Start saving")
+    print("Start saving", file=sys.stderr)
     start = datetime.now()
     if type(name) != str:
         name = str(name)
     ds.to_netcdf(directorySST + "sst.day.mean." + name + ".nc")
     diff = datetime.now() - start
-    print("Done saving after " + str(diff.seconds) + 's')
+    print("Done saving after "+ str(diff.seconds) + 's', file=sys.stderr)
 
 
 def mainSST(yearBegin, yearEnd, directorySST, name):
@@ -624,16 +634,25 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
         directorySST (str): Pathlike string to the directory
         name (str): Name or timeframe for saving eg 'datacube', '2015_2019'
     '''
-
+        
     if yearBegin > yearEnd:
-        print("Wrong years")
+        print("Wrong years", file=sys.stderr)
     else:
         i = yearBegin
         j = 0
         while i <= yearEnd:
-            download_file(i, directorySST)
-            i = i + 1
-        if yearBegin == yearEnd:
+            fileExists = False
+            for file in os.listdir(directorySST):
+                if file == ("sst.day.mean." + str(i) + ".nc"):
+                        fileExists = True
+            if fileExists:
+                print("file "+ str(i) +" already exists: No Download necessary", file=sys.stderr)
+                i = i + 1
+            else:
+                download_file(i, directorySST)
+                i = i + 1
+
+        if len(os.listdir(directorySST))==1:
             os.rename(os.path.join(directorySST, os.listdir(directorySST)[0]),directorySST + "sst.day.mean." + name + ".nc")
         else:
             ds_merge = []
@@ -641,9 +660,7 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
                 cube = xr.open_dataset(os.path.join(directorySST, filename))
                 ds_merge.append(cube)
                 j = j + 1
-            datacube = merge_datacubes(ds_merge)
-            safe_datacubeSST(datacube, name, directorySST)
-            datacube.close()
+            datacube = merge_datacubes(ds_merge)          
             for file in ds_merge:
                 file.close()
             for file in os.listdir(directorySST):
@@ -652,6 +669,9 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
                 else:
                     delete(os.path.join(directorySST, file))
                     continue
+            print(datacube, file=sys.stderr)
+            safe_datacubeSST(datacube, name, directorySST)
+            datacube.close()
 
 
 #################################Wrapper#################################################
