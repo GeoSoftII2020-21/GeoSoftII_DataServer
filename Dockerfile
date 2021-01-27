@@ -9,6 +9,8 @@ RUN apt update && apt install -y --no-install-recommends \
         libgdal-dev \
         gcc && \
 rm -rf /var/lib/apt/lists/*
+
+
 #Installiere Abhängigkeiten
 RUN pip install -r req.txt
 

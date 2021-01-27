@@ -30,12 +30,13 @@ def jobStatus():
 
 
 def wrapper(dataFromPost, id):
-    try:
-        loadData(dataFromPost, id)
-    except:
-        job["status"] = "error"
-        job["errorType"] = "Unkown Error"
-        return
+    #try:
+    #    loadData(dataFromPost, id)
+    #except:
+    #    job["status"] = "error"
+    #    job["errorType"] = "Unkown Error"
+    #    return
+    loadData(dataFromPost, id)
 
 def loadData(dataFromPost, id):
     job["status"] = "running"
@@ -45,14 +46,18 @@ def loadData(dataFromPost, id):
         fromDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][0],dataFromPost["arguments"]["timeframe"][2])
         toDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][1],
                                               dataFromPost["arguments"]["timeframe"][2])
-        try:
-            Collections_Sentinel2_SST_Data.load_collection("SST",
-                                                           [fromDate.year, toDate.year,
-                                                            os.path.join("/data/", str(id), "data/"), "cube"])
-        except:
-            job["status"] = "error"
-            job["errorType"] = "Unkown Error"
-            return
+
+        Collections_Sentinel2_SST_Data.load_collection("SST",
+                                                       [fromDate.year, toDate.year,
+                                                        os.path.join("/data/", str(id), "data/"), "cube"])
+        #try:
+        #    Collections_Sentinel2_SST_Data.load_collection("SST",
+        #                                                   [fromDate.year, toDate.year,
+        #                                                    os.path.join("/data/", str(id), "data/"), "cube"])
+        #except:
+        #    job["status"] = "error"
+        #    job["errorType"] = "Unkown Error"
+        #    return
         subid = uuid.uuid1()
         fromFile = os.path.join("/data/", str(id), "data/sst.day.mean.cube.nc")
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
@@ -68,12 +73,14 @@ def loadData(dataFromPost, id):
         fromDate = fromDate.strftime("%Y%m%d")
         toDate = toDate.strftime("%Y%m%d")
         params = [os.path.join("data/",str(id),"data/"),(fromDate,toDate),(dataFromPost["arguments"]["cloudcoverage"][0],dataFromPost["arguments"]["cloudcoverage"][1]),dataFromPost["arguments"]["Login"][0],dataFromPost["arguments"]["Login"][1]]
-        try:
-            Collections_Sentinel2_SST_Data.load_collection("Sentinel2", params)
-        except:
-            job["status"] = "error"
-            job["errorType"] = "Unkown Error"
-            return
+
+        Collections_Sentinel2_SST_Data.load_collection("Sentinel2", params)
+        #try:
+        #    Collections_Sentinel2_SST_Data.load_collection("Sentinel2", params)
+        #except:
+        #    job["status"] = "error"
+        #    job["errorType"] = "Unkown Error"
+        #    return
         x = os.listdir("data/"+str(id)+"/data")
         subid = uuid.uuid1()
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")

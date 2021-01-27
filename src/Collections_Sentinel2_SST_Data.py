@@ -2,24 +2,15 @@
 #@author Tatjana Melina Walter
 
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
-import geopandas as gpd
-import getpass
 import xarray as xr
 import rasterio as rio
 import os
 import pandas as pd
-import numpy as np
 import shutil
-from time import sleep
 import stat
-import io
 from rasterio.enums import Resampling
-import netCDF4 as nc
 from datetime import datetime
 from zipfile import ZipFile
-import matplotlib.pyplot as plt
-import urllib.request as request
-from contextlib import closing
 from ftplib import FTP
 
 import sys
