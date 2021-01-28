@@ -7,3 +7,6 @@ w
 Data 
 Wrapper_Sentinel_SST.py
 Wrapper_Sentinel_SST.ipynb
+dask-worker-space
+__pycache__
+debug.log
