@@ -1,3 +1,11 @@
+
+
+#'''Dask Cluster'''
+from dask.distributed import Client, LocalCluster
+
+
+
+
 '''packages'''
 
 from ftplib import FTP
@@ -5,15 +13,6 @@ from datetime import datetime
 import xarray  as xr
 import os.path
 import numpy as np
-
-
-'''dask cluster'''
-
-from dask.distributed import Client, LocalCluster
-cluster = None
-client = None
-firstRun = True
-
 
 '''exceptions'''
 
@@ -122,14 +121,6 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     for x in invalidNames:
         if x.lower() == name.lower(): raise FilenameError("Name is not a permitted filename")
     if (os.path.exists(directory) == False): raise DirectoryNotFoundError('No matching directory found')
-    '''set up dask cluster, open "http://127.0.0.1:1234/status" in browser to view dashboard'''
-    global cluster
-    global client
-    global firstRun
-    if firstRun:
-        cluster = LocalCluster(dashboard_address=':1234')
-        client = Client(cluster)
-        firstRun = False
     '''download sst data for the wanted years'''
     i = yearBegin
     files = []
@@ -142,7 +133,8 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     for f in files:
         x = xr.open_dataset(os.path.join(directory, f))
         ds_merge.append(x)
-    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})
+ #   datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})
+    datacube = xr.open_mfdataset(files,join="override")
     '''save datacube'''
     print("Start saving")
     datacube.to_netcdf(directory + name + ".nc", compute = True)
@@ -190,3 +182,16 @@ def get_time_sub_datacube (path, timeframe):
     data = data.sel(time=slice(timeframe[0], timeframe[1]))
     data_sub = data.to_netcdf(compute=True, encoding = {"sst": {'missing_value': np.nan}})
     return data_sub
+
+
+
+
+
+fileDirectory = "F:/Data_SST/WorkDir/"
+
+generate_sst_datacube(1981, 1983, fileDirectory, "SSTdatacube")
+
+
+
+
+

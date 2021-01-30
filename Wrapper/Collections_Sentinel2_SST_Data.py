@@ -1,9 +1,18 @@
+
+
+
 #@author Adrian Spork https://github.com/A-Spork
 #@author Tatjana Melina Walter https://github.com/jana2308walter
 #@author Maximilian Busch https://github.com/mabu1994
 #@author digilog11 https://github.com/digilog11
+
+
+
+
+
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import getpass
+import numpy as np
 import xarray as xr
 import rasterio as rio
 import os
@@ -17,18 +26,26 @@ from ftplib import FTP
 
 
 
+
+
 '''Dask Cluster'''
-#from dask.distributed import Client, LocalCluster
-#import multiprocessing.popen_spawn_posix#nonwindows
-#import multiprocessing.popen_spawn_win32#windows
-#from distributed import Client
-#Client()
-#cluster = LocalCluster()
-#client = Client(cluster)
-#client
+from dask.distributed import Client, LocalCluster
+'''Python 3.9.1 Workaround'''
+# # import multiprocessing.popen_spawn_posix#nonwindows#
+# import multiprocessing.popen_spawn_win32#windows#
+# from distributed import Client#
+# Client()#
+'''Server'''
+cluster = LocalCluster()
+client = Client(cluster)
+client
 
 
-##############################Sentinel2##################################################
+# Sentinel 2
+
+
+
+
 class NoPath(Exception):
     def init(self, message):
         self.message = message
@@ -43,6 +60,42 @@ class NoSafeFileError(Exception):
     def init(self,message):
         self.message = message
     pass 
+
+class FileNotFoundError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class DirectoryNotFoundError(Exception):
+  def __init__(self, message):
+    self.message = message
+
+class TimeframeError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class NotNetCDFError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class FilenameError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class TimeframeLengthError(Exception):
+  def __init__(self, message):
+    self.message = message
+
+class TimeframeValueError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class ParameterTypeError(Exception):
+  def __init__(self, message):
+    self.message = message
+
+
+
+
 
 def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, password, directory):
     '''
@@ -70,8 +123,11 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
     print("Start downloading " + str(len(products)) + " product(s)")
     api.download_all(products, directory, max_attempts = 10, checksum = True)
     print("All necassary downloads done")
-	
-	
+
+
+
+
+
 def unzipping(filename, directory):
     '''
     Unzips the file with the given filename
@@ -81,8 +137,11 @@ def unzipping(filename, directory):
     '''
     with ZipFile(os.path.join(directory, filename), 'r') as zipObj:
         zipObj.extractall(directory)
-	
-	
+
+
+
+
+
 def unzip(directory):
     '''
     Unzips and deletes the .zip in the given directory
@@ -94,7 +153,7 @@ def unzip(directory):
     for filename in os.listdir(directory):
         if filename.endswith(".zip"):
             if(filename[39:41]!="32"):
-                print("CRS not supported! Only EPSG:32632 supported") #do not throw an exception here
+                print("CRS not supported! Only EPSG:32632 supported")
                 delete(os.path.join(directory,filename))
             else:
                 unzipping(filename, directory)
@@ -102,23 +161,10 @@ def unzip(directory):
                 continue
         else:
             continue
-	
-	
-def delete(path):
-    '''
-    Deletes the file/directory with the given path
-    Parameters:
-        path (str): Path to the file/directory
-    '''
-   
-    try: 
-        os.remove(path)
-        print("File was deleted")
-    except FileNotFoundError:
-        raise NoPath ("No file in this path")
-       
-	
-	
+
+
+
+
 
 def extractBands(filename, resolution, directory):
     '''
@@ -162,8 +208,11 @@ def extractBands(filename, resolution, directory):
     except FileNotFoundError:
         raise NoPath("No file in this path")
     return bandPaths
-	
-	
+
+
+
+
+
 def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directory):
     '''
     Opens and reads the red and nir band, saves them as NetCDF file
@@ -259,8 +308,11 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directo
     b4.close()
     b8.close()
     return dataset
-	
-	
+
+
+
+
+
 def getDate(filename):
     '''
     Extracts the Date out of the Sentinelfilename
@@ -271,8 +323,11 @@ def getDate(filename):
     '''
 
     return filename[11:15] + "-" + filename[15:17] + "-" + filename[17:19]
-	
-	
+
+
+
+
+
 def getTile(filename):
     '''
     Extracts the UTM-tile of the Sentinelfilename
@@ -282,8 +337,11 @@ def getTile(filename):
         (str): UTM-tile of the File ("31UMC")
     '''
     return filename[38:44]
-	
-	
+
+
+
+
+
 def on_rm_error(func, path, exc_info):
     '''
     Unlinks a read-only file
@@ -291,8 +349,11 @@ def on_rm_error(func, path, exc_info):
 
     os.chmod(path, stat.S_IWRITE)
     os.unlink(path)
-	
-	
+
+
+
+
+
 def buildCube(directory, resolution, clouds, plName, prLevel):
     '''
     Builds a datacube in the given directory with coords, time as dimensions and the bands as datavariables
@@ -321,23 +382,21 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
 
 
 
-	
-def merge_Sentinel(directory):
+
+
+def merge_Sentinel(directory, nameSentinel):
     '''
     Merges datacubes by coordinates and time
 
     Parameters:
         directory (str): Pathlike string where Data is stored
+        nameSentinel (str): Filename for the datacube
     '''
 
     start = datetime.now()
-    count1 = 0
-
     files = os.listdir(directory)
     for nc in files:
-        if nc.endswith(".nc"):
-            continue
-        else:
+        if not nc.endswith(".nc"):
             raise TypeError("Wrong file in directory")
     if len(files) == 0:
         raise FileNotFoundError("Directory empty")
@@ -348,10 +407,7 @@ def merge_Sentinel(directory):
     else:
         print('Start merging')
         for file1 in files:
-            if count1 == len(files):
-                return
             for file2 in files:
-                count2 = 0
                 file1Date = file1[9:19]
                 file1Tile = file1[20:26]
                 file1Res = file1[27:31]
@@ -373,22 +429,33 @@ def merge_Sentinel(directory):
                     delete(os.path.join(directory, file1))
                     delete(os.path.join(directory, file2))                   
 
-    files = os.listdir(directory)
-    while len(os.listdir(directory)) > 1:
-        files = os.listdir(directory)
-        file1 = xr.open_dataset(os.path.join(directory, files[0]))
-        file2 = xr.open_dataset(os.path.join(directory, files[1]))
-        merge_time(file1, file2, files[0][0:31], directory)
-        file1.close()
-        file2.close()
-        delete(os.path.join(directory, files[1]))
+    ds_merge = []
+    files = []
+    for f in os.listdir(directory):
+        x = xr.open_dataset(os.path.join(directory, f))
+        ds_merge.append(x)
+        files.append(os.path.join(directory, f))
+#    datacube = xr.open_mfdataset(files)'''none dask'''
+    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})'''with dask'''
+    '''save datacube'''
+    print("Start saving")
+    datacube.to_netcdf(directory + nameSentinel + ".nc", compute = True)
+    print("Done saving")
+    datacube.close()
+
+    for f in ds_merge:
+        f.close()
+    for f in files:
+        deleteNetcdf(f)
+        
     end = datetime.now()
     diff = end - start
     print('All cubes merged for ' + str(diff.seconds) + 's')
-    os.rename(directory + (os.listdir(directory)[0]), directory + "merged_cube.nc")
-    
-	
-	
+
+
+
+
+
 def timeframe(ds, start, end):
     '''
     Slices Datacube down to given timeframe
@@ -405,8 +472,11 @@ def timeframe(ds, start, end):
     else:
         ds_selected = ds.sel(time = slice(start, end))
         return ds_selected
-	
-	
+
+
+
+
+
 def safe_datacube(ds, name, directory):
     '''
     Saves the Datacube as NetCDF (.nc)
@@ -421,8 +491,11 @@ def safe_datacube(ds, name, directory):
     ds.to_netcdf(directory + name + ".nc")
     diff = datetime.now() - start
     print("Done saving after "+ str(diff.seconds) + 's')
-	
-	
+
+
+
+
+
 def merge_coords(ds_left, ds_right, name, directory):
     '''
     Merges two datasets by coordinates
@@ -438,72 +511,83 @@ def merge_coords(ds_left, ds_right, name, directory):
     ds_merge = [ds_selected, ds_right]
     merged = xr.combine_by_coords(ds_merge)
     safe_datacube(merged, name, directory)
-	
-	
-def merge_time(ds1, ds2, name, directory):
-    '''
-    Merges two datasets by time
-    Parameters:
-        ds1 (xArray dataset): Dataset to be merged
-        ds2 (xArray dataset): Dataset to be merged
-        name (str): Name of the new dataset
-        directory (str): Pathlike string to the directory
-    '''
 
-    res = xr.combine_by_coords([ds1, ds2])
-    ds1.close()
-    ds2.close()
-    safe_datacube(res, name, directory)
-	
-	
-def slice_lat(ds, lat_left, lat_right):
-    '''
-    Slices a given dataset to given latitude bounds
-    Parameters:
-        ds (xArray Dataset): Dataset to be sliced
-        lat_left (float): Left latitude bound
-        lat_right (float): Right latitude bound
-    Returns:
-        ds (xArray Dataset): Sliced dataset
-    '''
 
-    ds_selected = ds.sel(lat = slice(lat_left, lat_right))
-    return ds_selected
-	
-	
-def slice_lon(ds, lon_left, lon_right):
-    '''
-    Slices a given dataset to given longitude bounds
-    Parameters:
-        ds (xArray Dataset): Dataset to be sliced
-        lon_left (float): Left longitude bound
-        lon_right (float): Right longitude bound
-    Returns:
-        ds (xArray Dataset): Sliced dataset
-    '''
 
-    ds_selected = ds.sel(lon = slice(lon_left, lon_right))
-    return ds_selected
-	
-	
-def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
-    '''
-    Slices a dataset to a given slice
-    Parameters:
-        ds (xArray Dataset): Dataset to be sliced
-        lon_left (float): Left bound for longitude
-        lon_right (float): Right bound for longitude
-        lat_left (float): Left bound for latitude
-        lat_right (float): Right bound for latitude
-    Returns:
-        ds (xArray Dataset): Sliced dataset
-    '''
 
-    ds_selected = slice_lon(ds, lon_left, lon_right)
-    return slice_lat(ds_selected, lat_left, lat_right)
-	
-	
-def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password):
+# def slice_lat(ds, lat_left, lat_right):
+#     '''
+#     Slices a given dataset to given latitude bounds
+#     Parameters:
+#         ds (xArray Dataset): Dataset to be sliced
+#         lat_left (float): Left latitude bound
+#         lat_right (float): Right latitude bound
+#     Returns:
+#         ds (xArray Dataset): Sliced dataset
+#     '''
+
+#     ds_selected = ds.sel(lat = slice(lat_left, lat_right))
+#     return ds_selected
+
+
+
+
+
+# def slice_lon(ds, lon_left, lon_right):
+#     '''
+#     Slices a given dataset to given longitude bounds
+#     Parameters:
+#         ds (xArray Dataset): Dataset to be sliced
+#         lon_left (float): Left longitude bound
+#         lon_right (float): Right longitude bound
+#     Returns:
+#         ds (xArray Dataset): Sliced dataset
+#     '''
+
+#     ds_selected = ds.sel(lon = slice(lon_left, lon_right))
+#     return ds_selected
+
+
+
+
+
+# def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
+#     '''
+#     Slices a dataset to a given slice
+#     Parameters:
+#         ds (xArray Dataset): Dataset to be sliced
+#         lon_left (float): Left bound for longitude
+#         lon_right (float): Right bound for longitude
+#         lat_left (float): Left bound for latitude
+#         lat_right (float): Right bound for latitude
+#     Returns:
+#         ds (xArray Dataset): Sliced dataset
+#     '''
+
+#     ds_selected = slice_lon(ds, lon_left, lon_right)
+#     return slice_lat(ds_selected, lat_left, lat_right)
+
+
+
+
+
+def delete(path):
+    '''
+    Deletes the file/directory with the given path
+    Parameters:
+        path (str): Path to the file/directory
+    '''
+    try: 
+        os.remove(path)
+        print("File was deleted")
+    except FileNotFoundError:
+        raise NoPath ("No file in this path")
+
+
+
+
+
+def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password, nameSentinel):
     '''
     Downloads, unzips, collects and merges Sentinel2 Satelliteimages to a single netCDF4 datacube
 
@@ -515,6 +599,7 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
         clouds (tuple of ints): Min and max of cloudcoverpercentage
         username (str): Uername for the Copernicus Open Acess Hub
         password (str): Password for the Copernicus Open Acess Hub
+        nameSentinel (str): Filename for the datacube
     '''
     if collectionDate[0]==collectionDate[1]:
         raise Exception("Start and end of collection can not be identical")
@@ -523,58 +608,12 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
     downloadingData (aoi, collectionDate, plName, prLevel, clouds, username, password, directory)
     unzip(directory)
     buildCube(directory, resolution, clouds, plName, prLevel)
-    merge_Sentinel(directory)
+    merge_Sentinel(directory, nameSentinel)
 
 
-# #################################SST####################################################
-
-'''packages'''
-
-from ftplib import FTP
-from datetime import datetime
-import xarray  as xr
-import os.path
-import numpy as np
+# SST
 
 
-
-
-'''exceptions'''
-
-class FileNotFoundError(Exception):
-  def __init__(self, message):
-    self.message = message
-    
-class DirectoryNotFoundError(Exception):
-  def __init__(self, message):
-    self.message = message
-
-class TimeframeError(Exception):
-  def __init__(self, message):
-    self.message = message
-    
-class NotNetCDFError(Exception):
-  def __init__(self, message):
-    self.message = message
-    
-class FilenameError(Exception):
-  def __init__(self, message):
-    self.message = message
-    
-class TimeframeLengthError(Exception):
-  def __init__(self, message):
-    self.message = message
-
-class TimeframeValueError(Exception):
-  def __init__(self, message):
-    self.message = message
-    
-class ParameterTypeError(Exception):
-  def __init__(self, message):
-    self.message = message
-
-
-'''functions'''
 
 def download_file(year, directory):
     '''
@@ -607,6 +646,10 @@ def download_file(year, directory):
         if counter == len(files):
             raise FileNotFoundError('No matching file found')
 
+
+
+
+
 def deleteNetcdf(path):
     '''
     Deletes the NetCDF-file with the given path
@@ -622,6 +665,10 @@ def deleteNetcdf(path):
             raise FileNotFoundError('No matching file found')
     else:
         raise NotNetCDFError('Path does not belong to a netCDF-file')
+
+
+
+
 
 def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     '''
@@ -646,14 +693,6 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     for x in invalidNames:
         if x.lower() == name.lower(): raise FilenameError("Name is not a permitted filename")
     if (os.path.exists(directory) == False): raise DirectoryNotFoundError('No matching directory found')
-    '''set up dask cluster, open "http://127.0.0.1:1234/status" in browser to view dashboard'''
-    global cluster
-    global client
-    global firstRun
-    if firstRun:
-        cluster = LocalCluster(dashboard_address=':1234')
-        client = Client(cluster)
-        firstRun = False
     '''download sst data for the wanted years'''
     i = yearBegin
     files = []
@@ -666,7 +705,8 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     for f in files:
         x = xr.open_dataset(os.path.join(directory, f))
         ds_merge.append(x)
-    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})
+#     datacube = xr.open_mfdataset(files) '''non dask'''
+    datacube = xr.open_mfdataset(files, parallel = True, chunks = {"time": "auto"}) '''with dask'''
     '''save datacube'''
     print("Start saving")
     datacube.to_netcdf(directory + name + ".nc", compute = True)
@@ -678,18 +718,21 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     for f in files:
         deleteNetcdf(f)
 
-def get_time_sub_datacube (path, timeframe):
+
+
+
+
+def get_time_sub_datacube (data, timeframe):
     '''
     Generates a subset along the time dimension of the sst datacube and returns it
 
     Parameters:
-        path (str): Path of the sst-datacube
+        data (xArray.Dataset): Dataset to be sliced
         timeframe ([str]): Tuple with values for start and end dates, e.g. ['1981-10-01','1981-11-01']
         
     Returns:
         ds (bytes): sub dataset
     '''
-    data = xr.open_dataset(path)
     
     if len(timeframe) != 2:
         raise TimeframeLengthError("Parameter timeframe is an array with two values: [start date, end date]. Please specify an array with exactly two values.")
@@ -711,47 +754,136 @@ def get_time_sub_datacube (path, timeframe):
             or timeframe[0] > np.datetime_as_string(data["time"][-1], unit='D')):
         raise TimeframeValueError("Timeframe values are out of bounds. Please check the range of the dataset.")
     
-    data = data.sel(time=slice(timeframe[0], timeframe[1]))
-    data_sub = data.to_netcdf(compute=True, encoding = {"sst": {'missing_value': np.nan}})
+    data_sub = data.sel(time = slice(timeframe[0], timeframe[1]))
+    data.close()
     return data_sub
 
 
-#################################Wrapper#################################################
+# Wrapper
 
-def load_collection(collection, params):
+
+def  load(collection,start, end):
+    if collection == "SST":
+        cube = xr.open_dataset(os.path.join(directorySST, nameSST))
+        cube = timeframe(cube, start, end) 
+        return cube
+
+    if collection == "Sentinel2":
+        cube = xr.open_dataset(os.path.join(directorySentinel, nameSentinel))
+        cube = timeframe(cube, start, end) 
+        return cube
+
+
+
+
+
+def create_collection(collection, params):
     '''
     Executes the SST - or the Sentinel - Dataprocess
-
+    
     Parameters:
         collection (str): The collection which is needed, SST or Sentinel2
         params ([]): The params for executing the main - method
    '''
-
+        
     if collection == "SST":
         yearBegin = params[0]
         yearEnd = params[1]
-        directory = params[2]
+        global directorySST 
+        directorySST = params[2]
+        global name
         name = params[3]
-        generate_sst_datacube (yearBegin, yearEnd, directory, name)
+        generate_sst_datacube(yearBegin, yearEnd, directorySST, name)
 
+        
+    
     elif collection == "Sentinel2":
         resolution = 100
-        directory = params[0]
+        global directorySentinel
+        directorySentinel = params[0]
         collectionDate = params[1]
         clouds = params[2]
         username = params[3]
         password = params[4]
+        nameSentinel = params[5]
         aoi = 'POLYGON((7.52834379254901 52.01238155392252,7.71417925515199 52.01183230436206,7.705255583805303 51.9153349236737,7.521204845259327 51.90983021961716,7.52834379254901 52.01238155392252,7.52834379254901 52.01238155392252))'
-        mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password)
-
+        mainSentinel(resolution, directorySentinel, collectionDate, aoi, clouds, username, password, nameSentinel)
+    
     else:
         raise NameError("No Collection named like this")
 
 
-###############################Example#############################################
 
-#paramsSentinel = ['C:/Users/adria/Desktop/Neuer Ordner/', ('2020-06-01T00:00:00Z', '2020-06-02T23:59:59Z'), (0, 30), "", ""]
-#load_collection("Sentinel2", paramsSentinel)
 
-#paramsSST = [2012, 2014, 'C:/Users/adria/Desktop/Neuer Ordner/', 'datacube']
-#load_collection("SST", paramsSST)
+def load_collection(collection, start, end): 
+    '''
+    Executes the SST - or the Sentinel - Dataprocess
+    Parameters:
+        collection (str): The collection which is needed, SST or Sentinel2
+        start (datetime64[ns]): startdate of the requested Data
+        end (datetime64[ns]): enddate of the requested Data
+    Returns:
+        datacube (xArray.Dataset): requested datacube
+    '''
+
+    if collection == "SST":
+        if os.path.exists(directorySST+ nameSST+".nc"):
+            SST = xr.open_dataset(directorySST+ nameSST+".nc")
+            timeframe = []
+            timeframe.append(start)
+            timeframe.append(end)
+            SST_sel = get_time_sub_datacube(SST, timeframe)
+            return SST_sel
+        else:
+            raise FileNotFoundError("Directory empty")
+    elif collection == "Sentinel2":
+        if os.path.exists(directorySentinel + nameSentinel + ".nc"):
+            Sentinel = xr.open_dataset(directorySentinel + nameSentinel + ".nc")
+            timeframe = []
+            timeframe.append(start)
+            timeframe.append(end)
+            Sentinel_sel = get_time_sub_datacube(Sentinel, timeframe)
+            return Sentinel_sel
+        else:
+            raise FileNotFoundError("Directory empty")
+    else:
+        raise NameError("No Collection named like this")
+
+
+
+
+'''Params Sentinel'''
+global directorySentinel 
+directorySentinel = "C:/Users/adria/Desktop/SentinelData/"
+global nameSentinel 
+nameSentinel = "Sentinel_datacube"
+timeframeSentinel = ('2020-06-01T00:00:00Z', '2020-06-15T23:59:59Z')
+cloud = (0, 30)
+username = ""
+password = ""
+paramsSentinel = [directorySentinel, timeframeSentinel, cloud, username, password, nameSentinel]
+
+'''Params SST'''
+global directorySST 
+directorySST = "C:/Users/adria/Desktop/SSTData/"
+global nameSST 
+nameSST = 'SST_datacube'
+SST_start = 2013
+SST_end = 2018
+paramsSST = [SST_start, SST_end, directorySST, nameSST]
+
+'''Setup'''
+# create_collection("Sentinel2", paramsSentinel)
+# create_collection("SST", paramsSST)
+
+
+
+
+'''
+User Example
+'''
+# Sentinel = load_collection("Sentinel2",'2020-06-01', '2020-06-13')
+# print(Sentinel)
+# SST = load_collection("SST",'2013-06-01', '2018-06-03')
+# print(SST)
+
