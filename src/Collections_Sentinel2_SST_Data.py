@@ -646,23 +646,12 @@ def mainSST(yearBegin, yearEnd, directorySST, name):
         if len(os.listdir(directorySST))==1:
             os.rename(os.path.join(directorySST, os.listdir(directorySST)[0]),directorySST + "sst.day.mean." + name + ".nc")
         else:
-            ds_merge = []
-            for filename in os.listdir(directorySST):
-                cube = xr.open_dataset(os.path.join(directorySST, filename))
-                ds_merge.append(cube)
-                j = j + 1
-            datacube = merge_datacubes(ds_merge)          
-            for file in ds_merge:
-                file.close()
-            for file in os.listdir(directorySST):
-                if file == "sst.day.mean." + name + ".nc":
-                    continue
-                else:
-                    delete(os.path.join(directorySST, file))
-                    continue
-            print(datacube, file=sys.stderr)
-            safe_datacubeSST(datacube, name, directorySST)
-            datacube.close()
+            paths = []
+            for path in os.listdir(directorySST):
+                paths.append(os.path.join(directorySST,path))
+            x = xr.open_mfdataset(paths, join="override")
+            x.to_netcdf(os.path.join(directorySST, "sst.day.mean.cube.nc"))
+
 
 
 #################################Wrapper#################################################
