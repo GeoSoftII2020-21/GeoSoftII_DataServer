@@ -707,7 +707,8 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
         x = xr.open_dataset(os.path.join(directory, f))
         ds_merge.append(x)
 #     datacube = xr.open_mfdataset(files) '''non dask'''
-    datacube = xr.open_mfdataset(files, parallel = True, chunks = {"time": "auto"}) '''with dask'''
+    '''with dask'''
+    datacube = xr.open_mfdataset(files, parallel = True, chunks = {"time": "auto"}) 
     '''save datacube'''
     print("Start saving")
     datacube.to_netcdf(directory + name + ".nc", compute = True)
