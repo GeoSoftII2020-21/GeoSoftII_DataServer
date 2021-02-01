@@ -9,9 +9,10 @@ import xarray  as xr
 import numpy as np
 import os.path
 import pytest
+import datacube_sst
 
-from datacube_sst import FileNotFoundError, DirectoryNotFoundError, TimeframeError, NotNetCDFError, FilenameError
-from datacube_sst import download_file, deleteNetcdf, generate_sst_datacube
+#from datacube_sst import FileNotFoundError, DirectoryNotFoundError, TimeframeError, NotNetCDFError, FilenameError
+#from datacube_sst import download_file, deleteNetcdf, generate_sst_datacube
 
 '''directory where testfiles will be downloaded'''
 fileDirectory = "./"
