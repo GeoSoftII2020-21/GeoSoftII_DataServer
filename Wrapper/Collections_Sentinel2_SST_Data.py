@@ -436,7 +436,8 @@ def merge_Sentinel(directory, nameSentinel):
         ds_merge.append(x)
         files.append(os.path.join(directory, f))
 #    datacube = xr.open_mfdataset(files)'''none dask'''
-    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})'''with dask'''
+    '''with dask'''
+    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})
     '''save datacube'''
     print("Start saving")
     datacube.to_netcdf(directory + nameSentinel + ".nc", compute = True)
