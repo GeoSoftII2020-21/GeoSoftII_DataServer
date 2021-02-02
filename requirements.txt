@@ -1,0 +1,10 @@
+# Requirements
+numpy==1.19.3
+scipy
+netCDF4
+pandas==1.1.5
+Flask==1.1.2
+requests
+xarray==0.16.2
+sentinelsat==0.14
+rasterio==1.1.8
