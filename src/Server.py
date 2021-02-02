@@ -7,6 +7,7 @@ import xarray
 import uuid
 import shutil
 import datetime
+import numpy as np
 
 docker = False
 
@@ -41,15 +42,16 @@ def wrapper(dataFromPost, id):
 def loadData(dataFromPost, id):
     job["status"] = "running"
     job["jobid"] = str(id)
-    os.mkdir("/data/" + str(id) + "/data")
+    #os.mkdir("/data/" + str(id) + "/data")
     if dataFromPost["arguments"]["DataType"] == "SST":
         fromDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][0],dataFromPost["arguments"]["timeframe"][2])
         toDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][1],
                                               dataFromPost["arguments"]["timeframe"][2])
+        fromDate = fromDate.strftime("%Y-%m-%d")
+        toDate = toDate.strftime("%Y-%m-%d")
 
-        Collections_Sentinel2_SST_Data.load_collection("SST",
-                                                       [fromDate.year, toDate.year,
-                                                        os.path.join("/data/", str(id), "data/"), "cube"])
+        cube : xarray.Dataset = Collections_Sentinel2_SST_Data.load_collection("SST",
+                                                       fromDate, toDate)
         #try:
         #    Collections_Sentinel2_SST_Data.load_collection("SST",
         #                                                   [fromDate.year, toDate.year,
@@ -61,8 +63,10 @@ def loadData(dataFromPost, id):
         subid = uuid.uuid1()
         fromFile = os.path.join("/data/", str(id), "data/sst.day.mean.cube.nc")
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
-        os.rename(fromFile, toFile)
-        shutil.rmtree("data/" + str(id) + "/data")
+        #os.rename(fromFile, toFile)
+        #shutil.rmtree("data/" + str(id) + "/data")
+        cube = cube.fillna(np.nan)
+        cube.to_netcdf(toFile)
         job["id"] = str(subid)
         job["status"] = "done"
     elif dataFromPost["arguments"]["DataType"] == "Sentinel2":
@@ -101,7 +105,7 @@ def main():
         port = 80
     else:
         port = 443
-    app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(debug=False, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 #Python Version
-FROM python:3.9.1
+FROM python:3.8.6
 
 #Kopiere requirements
 COPY req.txt .

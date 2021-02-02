@@ -1,7 +1,18 @@
-#@author Adrian Spork
-#@author Tatjana Melina Walter
+
+
+
+#@author Adrian Spork https://github.com/A-Spork
+#@author Tatjana Melina Walter https://github.com/jana2308walter
+#@author Maximilian Busch https://github.com/mabu1994
+#@author digilog11 https://github.com/digilog11
+
+
+
+
 
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
+import getpass
+import numpy as np
 import xarray as xr
 import rasterio as rio
 import os
@@ -12,10 +23,80 @@ from rasterio.enums import Resampling
 from datetime import datetime
 from zipfile import ZipFile
 from ftplib import FTP
-
 import sys
 
-##############################Sentinel2##################################################
+
+
+
+
+'''Dask Cluster'''
+from dask.distributed import Client, LocalCluster
+'''Python 3.9.1 Workaround'''
+# # import multiprocessing.popen_spawn_posix#nonwindows#
+# import multiprocessing.popen_spawn_win32#windows#
+# from distributed import Client#
+# Client()#
+'''Server'''
+cluster = None
+client = None
+
+
+
+# Sentinel 2
+
+
+
+
+class NoPath(Exception):
+    def init(self, message):
+        self.message = message
+    pass
+
+class NoResolution(Exception):
+    def init(self, message):
+        self.message = message
+    pass
+
+class NoSafeFileError(Exception):
+    def init(self,message):
+        self.message = message
+    pass 
+
+class FileNotFoundError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class DirectoryNotFoundError(Exception):
+  def __init__(self, message):
+    self.message = message
+
+class TimeframeError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class NotNetCDFError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class FilenameError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class TimeframeLengthError(Exception):
+  def __init__(self, message):
+    self.message = message
+
+class TimeframeValueError(Exception):
+  def __init__(self, message):
+    self.message = message
+    
+class ParameterTypeError(Exception):
+  def __init__(self, message):
+    self.message = message
+
+
+
+
 
 def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, password, directory):
     '''
@@ -45,16 +126,21 @@ def downloadingData(aoi, collectionDate, plName, prLevel, clouds, username, pass
     print("All necassary downloads done", file=sys.stderr)
 
 
+
+
+
 def unzipping(filename, directory):
     '''
     Unzips the file with the given filename
-
     Parameter:
         filename(str): Name of the .zip file
         directory (str): Pathlike string to the directory
     '''
     with ZipFile(os.path.join(directory, filename), 'r') as zipObj:
         zipObj.extractall(directory)
+
+
+
 
 
 def unzip(directory):
@@ -68,7 +154,7 @@ def unzip(directory):
     for filename in os.listdir(directory):
         if filename.endswith(".zip"):
             if(filename[39:41]!="32"):
-                print("CRS not supported! Only EPSG:32632 supported", file=sys.stderr) #do not throw an exception here
+                print("CRS not supported! Only EPSG:32632 supported", file=sys.stderr)
                 delete(os.path.join(directory,filename))
             else:
                 unzipping(filename, directory)
@@ -77,71 +163,60 @@ def unzip(directory):
         else:
             continue
 
-def delete(path):
-    '''
-    Deletes the file/directory with the given path
 
-    Parameters:
-        path (str): Path to the file/directory
-    '''
 
-    if os.path.exists(path):
-        os.remove(path)
-        print("File deleted: " + path, file=sys.stderr)
-    else:
-        print("The file does not exist", file=sys.stderr)
 
 
 def extractBands(filename, resolution, directory):
     '''
     Extracts bandpaths from the given .SAFE file
-
     Parameters:
         filename (str): Sentinel .SAFE file
         resolution (int): The resolution the datacube should have
         directory (str): Pathlike string to the directory
-
     Returns:
         bandPaths (str[]): An array of the paths for the red and nir band
     '''
 
-    lTwoA = os.listdir(os.path.join(directory, filename, "GRANULE"))
+    try:
+        lTwoA = os.listdir(os.path.join(directory, filename, "GRANULE"))
+        if resolution == 10:
+            bandName = os.listdir (os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R10m"))
+            pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R10m", str(bandName[3]))
+            pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R10m", str(bandName[4]))
+            bandPaths = [pathRed, pathNIR]
 
-    if resolution == 10:
-        bandName = os.listdir(os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R10m"))
-        pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R10m", str(bandName[3]))
-        pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R10m", str(bandName[4]))
-        bandPaths = [pathRed, pathNIR]
+        elif resolution == 20:
+            bandName = os.listdir (os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m"))
+            pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[3]))
+            pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[9]))
+            bandPaths = [pathRed, pathNIR]
 
-    elif resolution == 20:
-        bandName = os.listdir(os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m"))
-        pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[3]))
-        pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[9]))
-        bandPaths = [pathRed, pathNIR]
+        elif resolution == 60:
+            bandName = os.listdir (os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R60m"))
+            pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R60m", str(bandName[4]))
+            pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R60m", str(bandName[11]))
+            bandPaths = [pathRed, pathNIR]
 
-    elif resolution == 60:
-        bandName = os.listdir(os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R60m"))
-        pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R60m", str(bandName[4]))
-        pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R60m", str(bandName[11]))
-        bandPaths = [pathRed, pathNIR]
+        elif resolution == 100:
+            bandName = os.listdir (os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m"))
+            pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[3]))
+            pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[9]))
+            bandPaths = [pathRed, pathNIR]
 
-    elif resolution == 100:
-        bandName = os.listdir(os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m"))
-        pathRed = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[3]))
-        pathNIR = os.path.join(directory, filename, "GRANULE", str(lTwoA[0]), "IMG_DATA", "R20m", str(bandName[9]))
-        bandPaths = [pathRed, pathNIR]
-
-    else:
-        print("No such resolution", file=sys.stderr)
-        return -1
-
+        else:
+               raise NoResolution("Invalid Resolution, try 10, 20, 60 or 100")
+    except FileNotFoundError:
+        raise NoPath("No file in this path")
     return bandPaths
+
+
+
 
 
 def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directory):
     '''
     Opens and reads the red and nir band, saves them as NetCDF file
-
     Parameters:
         bandPaths (str[]): Array with the paths to the red and nir band
         date (datetime 64[ns]): The collection date ("2020-12-31")
@@ -151,10 +226,10 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directo
         plName (str): The name of the platform
         prLevel (str): The level of the process
         directory (str): Pathlike string to the directory
-
     Returns:
         dataset (xArray dataset): The result dataset as xArray dataset
     '''
+    
     
     b4 = rio.open(bandpath[0])
     b8 = rio.open(bandpath[1])
@@ -170,8 +245,7 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directo
     elif resolution == 100:
         res = 1098
     else:
-        print("No such resolution", file=sys.stderr)
-        return -1
+        raise NoResolution("Invalid Resolution, try 10, 20, 60 or 100")
 
     j = res - 1
     i = 0
@@ -237,13 +311,14 @@ def loadBand (bandpath, date, tile, resolution, clouds, plName, prLevel, directo
     return dataset
 
 
+
+
+
 def getDate(filename):
     '''
     Extracts the Date out of the Sentinelfilename
-
     Parameters:
         filename (str): Name of the file
-
     Returns:
         (str): Date of the File ("2020-12-31")
     '''
@@ -251,17 +326,21 @@ def getDate(filename):
     return filename[11:15] + "-" + filename[15:17] + "-" + filename[17:19]
 
 
+
+
+
 def getTile(filename):
     '''
     Extracts the UTM-tile of the Sentinelfilename
-
     Parameters:
         filename (str): Name of the file
-
     Returns:
         (str): UTM-tile of the File ("31UMC")
     '''
     return filename[38:44]
+
+
+
 
 
 def on_rm_error(func, path, exc_info):
@@ -273,10 +352,12 @@ def on_rm_error(func, path, exc_info):
     os.unlink(path)
 
 
+
+
+
 def buildCube(directory, resolution, clouds, plName, prLevel):
     '''
     Builds a datacube in the given directory with coords, time as dimensions and the bands as datavariables
-
     Parameters:
         directory (str): Pathlike string to the directory
         resolution (int): The resolution of the dataset
@@ -284,10 +365,16 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
         plName (str): The name of the platform
         prLevel (str): The level of the process
     '''
-
+    
+    i = 0
     for filename in os.listdir(directory):
         if filename.endswith(".SAFE"):
-            bandPath = extractBands(filename, resolution, directory)
+            i = i + 1
+    if i == 0:
+        raise NoSafeFileError ("In this directory is no SAFE file to build a cube")
+    for filename in os.listdir(directory):
+        if filename.endswith(".SAFE"):
+            bandPath = extractBands(os.path.join(directory, filename), resolution, directory)
             band = loadBand(bandPath, getDate(filename), getTile(filename), resolution, clouds, plName, prLevel, directory)
             shutil.rmtree(os.path.join(directory, filename), onerror = on_rm_error)
             continue
@@ -295,87 +382,83 @@ def buildCube(directory, resolution, clouds, plName, prLevel):
             continue
 
 
-def merge_Sentinel(directory):
+
+
+
+def merge_Sentinel(directory, nameSentinel):
     '''
     Merges datacubes by coordinates and time
 
     Parameters:
         directory (str): Pathlike string where Data is stored
+        nameSentinel (str): Filename for the datacube
     '''
-
     start = datetime.now()
-    count1 = 0
     files = os.listdir(directory)
-
+    for nc in files:
+        if not nc.endswith(".nc"):
+            raise TypeError("Wrong file in directory")
     if len(files) == 0:
-        print("Directory empty", file=sys.stderr)
-        return
+        raise FileNotFoundError("Directory empty")
     elif len(files) == 1:
         print("Only one file in directory", file=sys.stderr)
+        os.rename(directory + (os.listdir(directory)[0]), directory + "merged_cube.nc")
         return
     else:
         print('Start merging', file=sys.stderr)
         for file1 in files:
-            if count1 == len(files):
-                return
             for file2 in files:
-                count2 = 0
-                if file1.endswith(".nc") and file2.endswith(".nc"):
-                    file1Date = file1[9:19]
-                    file1Tile = file1[20:26]
-                    file1Res = file1[27:31]
-                    file2Date = file2[9:19]
-                    file2Tile = file2[20:26]
-                    file2Res = file2[27:31]
-                    if file1[21:23] == "31":
-                        delete(os.path.join(directory,file1))
-                    elif file2[21:23] == "31":
-                        delete(os.path.join(directory,file2))
-                    elif file1Date == file2Date and file1Tile == file2Tile and file1Res == file2Res:
-                        continue
-                    elif file1Date == file2Date and file1Tile == "T32ULC" and file2Tile == "T32UMC" and file1Res == file2Res:
-                        fileLeft = xr.open_dataset(os.path.join(directory, file1))
-                        fileRight = xr.open_dataset(os.path.join(directory, file2))
-                        merge_coords(fileLeft, fileRight, file1[0:20] + "Merged" + file1[26:31], directory)
-                        fileLeft.close()
-                        fileRight.close()
-                        delete(os.path.join(directory, file1))
-                        delete(os.path.join(directory, file2))
-                        continue
-                else:
-                    raise TypeError("Wrong file in directory")
-
-
-        files = os.listdir(directory)
-        while len(os.listdir(directory)) > 1:
-            files = os.listdir(directory)
-            if files[0].endswith(".nc") and files[1].endswith(".nc"):
-                file1 = xr.open_dataset(os.path.join(directory, files[0]))
-                file2 = xr.open_dataset(os.path.join(directory, files[1]))
-                merge_time(file1, file2, files[0][0:31], directory)
-                file1.close()
-                file2.close()
-                delete(os.path.join(directory, files[1]))
-                continue
-            else:
-                print("Error: Wrong file in directory", file=sys.stderr)
-                raise TypeError("Wrong file in directory")
-
+                file1Date = file1[9:19]
+                file1Tile = file1[20:26]
+                file1Res = file1[27:31]
+                file2Date = file2[9:19]
+                file2Tile = file2[20:26]
+                file2Res = file2[27:31]
+                if file1[21:23] == "31":
+                    delete(os.path.join(directory,file1))
+                elif file2[21:23] == "31":
+                    delete(os.path.join(directory,file2))
+                elif file1Date == file2Date and file1Tile == file2Tile and file1Res == file2Res:
+                    continue
+                elif file1Date == file2Date and file1Tile == "T32ULC" and file2Tile == "T32UMC" and file1Res == file2Res:
+                    fileLeft = xr.open_dataset(os.path.join(directory, file1))
+                    fileRight = xr.open_dataset(os.path.join(directory, file2))
+                    merge_coords(fileLeft, fileRight, file1[0:20] + "Merged" + file1[26:31], directory)
+                    fileLeft.close()
+                    fileRight.close()
+                    delete(os.path.join(directory, file1))
+                    delete(os.path.join(directory, file2))
+    ds_merge = []
+    files = []
+    for f in os.listdir(directory):
+        x = xr.open_dataset(os.path.join(directory, f))
+        ds_merge.append(x)
+        files.append(os.path.join(directory, f))
+    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})
+    '''save datacube'''
+    print("Start saving", file=sys.stderr)
+    datacube.to_netcdf(directory + nameSentinel + ".nc", compute = True)
+    print("Done saving", file=sys.stderr)
+    datacube.close()
+    for f in ds_merge:
+        f.close()
+    for f in files:
+        deleteNetcdf(f)
     end = datetime.now()
     diff = end - start
     print('All cubes merged for ' + str(diff.seconds) + 's', file=sys.stderr)
-    return
+
+
+
 
 
 def timeframe(ds, start, end):
     '''
     Slices Datacube down to given timeframe
-
     Parameters:
         ds (xArray Dataset): Sourcedataset
         start (str): Start of the timeframe eg '2018-07-13'
         end (str): End of the timeframe eg '2018-08-23'
-
     Returns:
         ds_selected (xArray Dataset): Dataset sliced to timeframe
     '''
@@ -387,10 +470,12 @@ def timeframe(ds, start, end):
         return ds_selected
 
 
+
+
+
 def safe_datacube(ds, name, directory):
     '''
     Saves the Datacube as NetCDF (.nc)
-
     Parameters:
         ds (xArray Dataset): Sourcedataset
         name (str): Name eg '2017', '2015_2019'
@@ -399,11 +484,12 @@ def safe_datacube(ds, name, directory):
 
     print("Start saving", file=sys.stderr)
     start = datetime.now()
-    if type(name) != str:
-        name = str(name)
     ds.to_netcdf(directory + name + ".nc")
     diff = datetime.now() - start
     print("Done saving after "+ str(diff.seconds) + 's', file=sys.stderr)
+
+
+
 
 
 def merge_coords(ds_left, ds_right, name, directory):
@@ -417,83 +503,87 @@ def merge_coords(ds_left, ds_right, name, directory):
         directory (str): Pathlike string to the directory
     '''
 
-    ds_selected = slice_lon(ds_left, ds_left.lon[0], ds_right.lon[0])
+    ds_selected = ds_left.sel(lon = slice(ds_left.lon[0], ds_right.lon[0]))
     ds_merge = [ds_selected, ds_right]
     merged = xr.combine_by_coords(ds_merge)
     safe_datacube(merged, name, directory)
 
 
-def merge_time(ds1, ds2, name, directory):
-    '''
-    Merges two datasets by time
 
+
+# def slice_lat(ds, lat_left, lat_right):
+#     '''
+#     Slices a given dataset to given latitude bounds
+#     Parameters:
+#         ds (xArray Dataset): Dataset to be sliced
+#         lat_left (float): Left latitude bound
+#         lat_right (float): Right latitude bound
+#     Returns:
+#         ds (xArray Dataset): Sliced dataset
+#     '''
+
+#     ds_selected = ds.sel(lat = slice(lat_left, lat_right))
+#     return ds_selected
+
+
+
+
+
+# def slice_lon(ds, lon_left, lon_right):
+#     '''
+#     Slices a given dataset to given longitude bounds
+#     Parameters:
+#         ds (xArray Dataset): Dataset to be sliced
+#         lon_left (float): Left longitude bound
+#         lon_right (float): Right longitude bound
+#     Returns:
+#         ds (xArray Dataset): Sliced dataset
+#     '''
+
+#     ds_selected = ds.sel(lon = slice(lon_left, lon_right))
+#     return ds_selected
+
+
+
+
+
+# def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
+#     '''
+#     Slices a dataset to a given slice
+#     Parameters:
+#         ds (xArray Dataset): Dataset to be sliced
+#         lon_left (float): Left bound for longitude
+#         lon_right (float): Right bound for longitude
+#         lat_left (float): Left bound for latitude
+#         lat_right (float): Right bound for latitude
+#     Returns:
+#         ds (xArray Dataset): Sliced dataset
+#     '''
+
+#     ds_selected = slice_lon(ds, lon_left, lon_right)
+#     return slice_lat(ds_selected, lat_left, lat_right)
+
+
+
+
+
+def delete(path):
+    '''
+    Deletes the file/directory with the given path
     Parameters:
-        ds1 (xArray dataset): Dataset to be merged
-        ds2 (xArray dataset): Dataset to be merged
-        name (str): Name of the new dataset
-        directory (str): Pathlike string to the directory
+        path (str): Path to the file/directory
     '''
-
-    res = xr.combine_by_coords([ds1, ds2])
-    ds1.close()
-    ds2.close()
-    safe_datacube(res, name, directory)
-
-
-def slice_lat(ds, lat_left, lat_right):
-    '''
-    Slices a given dataset to given latitude bounds
-
-    Parameters:
-        ds (xArray Dataset): Dataset to be sliced
-        lat_left (float): Left latitude bound
-        lat_right (float): Right latitude bound
-
-    Returns:
-        ds (xArray Dataset): Sliced dataset
-    '''
-
-    ds_selected = ds.sel(lat = slice(lat_left, lat_right))
-    return ds_selected
+    try: 
+        os.remove(path)
+        print("File was deleted", file=sys.stderr)
+    except FileNotFoundError:
+        raise NoPath ("No file in this path")
 
 
-def slice_lon(ds, lon_left, lon_right):
-    '''
-    Slices a given dataset to given longitude bounds
-
-    Parameters:
-        ds (xArray Dataset): Dataset to be sliced
-        lon_left (float): Left longitude bound
-        lon_right (float): Right longitude bound
-
-    Returns:
-        ds (xArray Dataset): Sliced dataset
-    '''
-
-    ds_selected = ds.sel(lon = slice(lon_left, lon_right))
-    return ds_selected
 
 
-def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
-    '''
-    Slices a dataset to a given slice
 
-    Parameters:
-        ds (xArray Dataset): Dataset to be sliced
-        lon_left (float): Left bound for longitude
-        lon_right (float): Right bound for longitude
-        lat_left (float): Left bound for latitude
-        lat_right (float): Right bound for latitude
-
-    Returns:
-        ds (xArray Dataset): Sliced dataset
-    '''
-
-    ds_selected = slice_lon(ds, lon_left, lon_right)
-    return slice_lat(ds_selected, lat_left, lat_right)
-
-
-def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password):
+def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password, nameSentinel):
     '''
     Downloads, unzips, collects and merges Sentinel2 Satelliteimages to a single netCDF4 datacube
 
@@ -505,6 +595,7 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
         clouds (tuple of ints): Min and max of cloudcoverpercentage
         username (str): Uername for the Copernicus Open Acess Hub
         password (str): Password for the Copernicus Open Acess Hub
+        nameSentinel (str): Filename for the datacube
     '''
     if collectionDate[0]==collectionDate[1]:
         raise Exception("Start and end of collection can not be identical")
@@ -513,19 +604,21 @@ def mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, p
     downloadingData (aoi, collectionDate, plName, prLevel, clouds, username, password, directory)
     unzip(directory)
     buildCube(directory, resolution, clouds, plName, prLevel)
-    merge_Sentinel(directory)
+    merge_Sentinel(directory, nameSentinel)
 
 
-# #################################SST####################################################
+# SST
 
-def download_file(year, directorySST):
+
+
+def download_file(year, directory):
     '''
     Downloads the sst data file for the given year
-    
+
     Parameters:
-        year (int): The year the sst is needed
-        directorySST (str): Pathlike string to the directory
-   '''
+        year (int): year of the sst data
+        directory (str): path of future file
+    '''
     
     start = datetime.now()
     ftp = FTP('ftp.cdc.noaa.gov')
@@ -537,159 +630,262 @@ def download_file(year, directorySST):
 
     for file in files:
         if file == 'sst.day.mean.' + str(year) + '.nc':
-            print("Downloading... " + file, file=sys.stderr)
-            ftp.retrbinary("RETR " + file, open(directorySST + file, 'wb').write)      
+            print("Downloading..." + file, file=sys.stderr)
+            ftp.retrbinary("RETR " + file, open(directory + file, 'wb').write)
             ftp.close()
             end = datetime.now()
             diff = end - start
-            print('File downloaded ' + str(diff.seconds) + 's', file=sys.stderr)
+            print('File downloaded in ' + str(diff.seconds) + 's', file=sys.stderr)
+            break
         else: counter += 1
-    
+
         if counter == len(files):
-            print('No matching dataset found for this year', file=sys.stderr)
+            raise FileNotFoundError('No matching file found')
 
 
-def merge_datacubes(ds_merge):
+
+
+
+def deleteNetcdf(path):
     '''
-    Merges datacubes by coordinates
-    
+    Deletes the NetCDF-file with the given path
+
     Parameters:
-        ds_merge (xArray Dataset[]): Array of datasets to be merged
-        
-    Returns: 
-        ds1 (xArray Dataset): A single datacube with all merged datacubes
+        path (str): Path to the file
     '''
-    
-    start = datetime.now()
-    if len(ds_merge) == 0:
-        print("Error: No datacubes to merge", file=sys.stderr)
-        return
-    if len(ds_merge) == 1:
-        return ds_merge[0]
+    if path[len(path)-3:len(path)] == ".nc":
+        if os.path.exists(path):
+            os.remove(path)
+            print("File deleted: " + path, file=sys.stderr)
+        else:
+            raise FileNotFoundError('No matching file found')
     else:
-        print('Start merging', file=sys.stderr)
-        ds1 = ds_merge[0]
-        count = 1
-        while count < len(ds_merge):
-            start1 = datetime.now()
-            ds1 =  xr.combine_by_coords([ds1, ds_merge[count]], combine_attrs="override")
-            count += 1
-            diff = datetime.now() - start1
-            print("Succesfully merged cube nr " + str(count) + " to the base cube in "+ str(diff.seconds) + 's', file=sys.stderr)
-        diff = datetime.now() - start
-        print('All cubes merged for ' + str(diff.seconds) + 's', file=sys.stderr)
-        return ds1
+        raise NotNetCDFError('Path does not belong to a netCDF-file')
 
 
-def delete(path):
+
+
+
+def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     '''
-    Deletes the file/directory with the given path
-
-    Parameters:
-        path (str): Path to the file/directory
-    '''
-
-    if os.path.exists(path):
-        os.remove(path)
-        print("File deleted: " + path, file=sys.stderr)
-    else:
-        print("The file does not exist", file=sys.stderr)
-
-
-def safe_datacubeSST(ds, name, directorySST):
-    '''
-    Saves the Datacube as NetCDF (.nc)
-
-    Parameters:
-        ds (xArray Dataset): Sourcedataset
-        name (str): Name or timeframe for saving eg '2017', '2015_2019'
-        directorySST (str): Pathlike string to the directory
-    '''
-
-    print("Start saving", file=sys.stderr)
-    start = datetime.now()
-    if type(name) != str:
-        name = str(name)
-    ds.to_netcdf(directorySST + "sst.day.mean." + name + ".nc")
-    diff = datetime.now() - start
-    print("Done saving after "+ str(diff.seconds) + 's', file=sys.stderr)
-
-
-def mainSST(yearBegin, yearEnd, directorySST, name):
-    '''
-    The main function to download, merge and safe the datacubes
+    The main function to download the sst-data, merge it and safe the datacube
 
     Parameters:
         yearBegin (int): First year to download
         yearEnd (int): Last year to download
-        directorySST (str): Pathlike string to the directory
-        name (str): Name or timeframe for saving eg 'datacube', '2015_2019'
+        directory (str): Path to the directory
+        name (str): Name of new File
     '''
+    
+    '''check parameters'''
+    if yearBegin > yearEnd or yearBegin == yearEnd:
+        raise TimeframeError("Ending year must be bigger than beginning year")
+    '''should catch most invalid filenames'''
+    invalidCharacters = ['<', '>', ':',  '/',  '|', '*', '?', '"', '\\']
+    invalidNames = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']
+    if len(name) < 1: raise FilenameError("Name is not a permitted filename")
+    for x in invalidCharacters:
+        if x in name: raise FilenameError("Name is not a permitted filename")
+    for x in invalidNames:
+        if x.lower() == name.lower(): raise FilenameError("Name is not a permitted filename")
+    if (os.path.exists(directory) == False): raise DirectoryNotFoundError('No matching directory found')
+    '''download sst data for the wanted years'''
+    i = yearBegin
+    files = []
+    ds_merge = []
+    while i <= yearEnd:
+        download_file(i, directory)
+        files.append(os.path.join(directory,"sst.day.mean." + str(i) + ".nc"))
+        i = i + 1
+    '''merge sst data'''
+    for f in files:
+        x = xr.open_dataset(os.path.join(directory, f))
+        ds_merge.append(x)
+#     datacube = xr.open_mfdataset(files) '''non dask'''
+    datacube = xr.open_mfdataset(files, parallel = True, chunks = {"time": "auto"})
+    '''save datacube'''
+    print("Start saving", file=sys.stderr)
+    datacube.to_netcdf(directory + name + ".nc", compute = True)
+    print("Done saving", file=sys.stderr)
+    datacube.close()
+    '''delete yearly datasets'''
+    for f in ds_merge:
+        f.close()
+    for f in files:
+        deleteNetcdf(f)
+
+
+
+
+
+def get_time_sub_datacube (data, timeframe):
+    '''
+    Generates a subset along the time dimension of the sst datacube and returns it
+
+    Parameters:
+        data (xArray.Dataset): Dataset to be sliced
+        timeframe ([str]): Tuple with values for start and end dates, e.g. ['1981-10-01','1981-11-01']
         
-    if yearBegin > yearEnd:
-        print("Wrong years", file=sys.stderr)
-    else:
-        i = yearBegin
-        j = 0
-        while i <= yearEnd:
-            fileExists = False
-            for file in os.listdir(directorySST):
-                if file == ("sst.day.mean." + str(i) + ".nc"):
-                        fileExists = True
-            if fileExists:
-                print("file "+ str(i) +" already exists: No Download necessary", file=sys.stderr)
-                i = i + 1
-            else:
-                download_file(i, directorySST)
-                i = i + 1
+    Returns:
+        ds (bytes): sub dataset
+    '''
+    
+    if len(timeframe) != 2:
+        raise TimeframeLengthError("Parameter timeframe is an array with two values: [start date, end date]. Please specify an array with exactly two values.")
 
-        if len(os.listdir(directorySST))==1:
-            os.rename(os.path.join(directorySST, os.listdir(directorySST)[0]),directorySST + "sst.day.mean." + name + ".nc")
-        else:
-            paths = []
-            for path in os.listdir(directorySST):
-                paths.append(os.path.join(directorySST,path))
-            x = xr.open_mfdataset(paths, join="override")
-            x.to_netcdf(os.path.join(directorySST, "sst.day.mean.cube.nc"))
+    try:
+        x = isinstance(np.datetime64(timeframe[0]),np.datetime64)
+        x = isinstance(np.datetime64(timeframe[1]),np.datetime64)
+
+    except ValueError:
+        raise ParameterTypeError("Values of parameter timeframe must be strings of the format 'year-month-day'. For example '1981-01-01'. Please specify values that follow this.")
+
+    if (type(timeframe[0]) != str or type(timeframe[1]) != str
+            or len(timeframe[0]) != 10 or len(timeframe[1]) != 10):
+        raise ParameterTypeError("Values of parameter timeframe must be strings of the format 'year-month-day'. For example '1981-01-01'. Please specify values that follow this.")
+    elif (timeframe[0] > timeframe[1]
+            or np.datetime_as_string(data["time"][0], unit='D') > timeframe[0]
+            or np.datetime_as_string(data["time"][0], unit='D') > timeframe[1]
+            or timeframe[1] > np.datetime_as_string(data["time"][-1], unit='D')
+            or timeframe[0] > np.datetime_as_string(data["time"][-1], unit='D')):
+        raise TimeframeValueError("Timeframe values are out of bounds. Please check the range of the dataset.")
+    
+    data_sub = data.sel(time = slice(timeframe[0], timeframe[1]))
+    data.close()
+    return data_sub
+
+
+# Wrapper
+
+
+def  load(collection,start, end):
+    if collection == "SST":
+        cube = xr.open_dataset(os.path.join(directorySST, nameSST))
+        cube = timeframe(cube, start, end) 
+        return cube
+
+    if collection == "Sentinel2":
+        cube = xr.open_dataset(os.path.join(directorySentinel, nameSentinel))
+        cube = timeframe(cube, start, end) 
+        return cube
 
 
 
-#################################Wrapper#################################################
 
-def load_collection(collection, params):
+
+def create_collection(collection, params):
     '''
     Executes the SST - or the Sentinel - Dataprocess
-
+    
     Parameters:
         collection (str): The collection which is needed, SST or Sentinel2
         params ([]): The params for executing the main - method
    '''
-
+        
     if collection == "SST":
         yearBegin = params[0]
         yearEnd = params[1]
+        global directorySST 
         directorySST = params[2]
+        global name
         name = params[3]
-        mainSST(yearBegin, yearEnd, directorySST, name)
+        generate_sst_datacube(yearBegin, yearEnd, directorySST, name)
 
+        
+    
     elif collection == "Sentinel2":
         resolution = 100
-        directory = params[0]
+        global directorySentinel
+        directorySentinel = params[0]
         collectionDate = params[1]
         clouds = params[2]
         username = params[3]
         password = params[4]
+        nameSentinel = params[5]
         aoi = 'POLYGON((7.52834379254901 52.01238155392252,7.71417925515199 52.01183230436206,7.705255583805303 51.9153349236737,7.521204845259327 51.90983021961716,7.52834379254901 52.01238155392252,7.52834379254901 52.01238155392252))'
-        mainSentinel(resolution, directory, collectionDate, aoi, clouds, username, password)
-
+        mainSentinel(resolution, directorySentinel, collectionDate, aoi, clouds, username, password, nameSentinel)
+    
     else:
         raise NameError("No Collection named like this")
 
 
-###############################Example#############################################
 
-#paramsSentinel = ['C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', ('20200601', '20200605'), (0, 30), "", ""]
-#load_collection("Sentinel2", paramsSentinel)
 
-#paramsSST = [2016, 2018, 'C:/Users/adria/Desktop/Uni/Semester5/Geosoft2/Code/Notebooks/Data/', 'datacube']
-#load_collection("SST", paramsSST)
+def load_collection(collection, start, end): 
+    '''
+    Executes the SST - or the Sentinel - Dataprocess
+    Parameters:
+        collection (str): The collection which is needed, SST or Sentinel2
+        start (datetime64[ns]): startdate of the requested Data
+        end (datetime64[ns]): enddate of the requested Data
+    Returns:
+        datacube (xArray.Dataset): requested datacube
+    '''
+
+    if collection == "SST":
+        if os.path.exists(directorySST+ nameSST+".nc"):
+            SST = xr.open_dataset(directorySST+ nameSST+".nc")
+            timeframe = []
+            timeframe.append(start)
+            timeframe.append(end)
+            SST_sel = get_time_sub_datacube(SST, timeframe)
+            return SST_sel
+        else:
+            raise FileNotFoundError("Directory empty")
+    elif collection == "Sentinel2":
+        if os.path.exists(directorySentinel + nameSentinel + ".nc"):
+            Sentinel = xr.open_dataset(directorySentinel + nameSentinel + ".nc")
+            timeframe = []
+            timeframe.append(start)
+            timeframe.append(end)
+            Sentinel_sel = get_time_sub_datacube(Sentinel, timeframe)
+            return Sentinel_sel
+        else:
+            raise FileNotFoundError("Directory empty")
+    else:
+        raise NameError("No Collection named like this")
+
+
+
+
+'''Params Sentinel'''
+global directorySentinel 
+directorySentinel = "/SENTINEL/"
+global nameSentinel 
+nameSentinel = "Sentinel_datacube"
+timeframeSentinel = ('2020-06-01T00:00:00Z', '2020-06-15T23:59:59Z')
+cloud = (0, 30)
+username = os.environ.get("Username")
+password = os.environ.get("Password")
+paramsSentinel = [directorySentinel, timeframeSentinel, cloud, username, password, nameSentinel]
+
+'''Params SST'''
+global directorySST 
+directorySST = "/SST/"
+global nameSST 
+nameSST = 'SST_datacube'
+SST_start = 2012
+SST_end = 2015
+paramsSST = [SST_start, SST_end, directorySST, nameSST]
+
+'''Setup'''
+#create_collection("Sentinel2", paramsSentinel)
+#create_collection("SST", paramsSST)
+
+
+
+if __name__ == "__main__":
+    cluster = LocalCluster()
+    client = Client(cluster)
+    client
+
+
+
+'''
+User Example
+'''
+# Sentinel = load_collection("Sentinel2",'2020-06-01', '2020-06-13')
+# print(Sentinel)
+# SST = load_collection("SST",'2013-06-01', '2018-06-03')
+# print(SST)
+
