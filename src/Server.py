@@ -8,6 +8,7 @@ import uuid
 import shutil
 import datetime
 import numpy as np
+import sys
 
 docker = False
 
@@ -42,54 +43,70 @@ def wrapper(dataFromPost, id):
 def loadData(dataFromPost, id):
     job["status"] = "running"
     job["jobid"] = str(id)
-    #os.mkdir("/data/" + str(id) + "/data")
     if dataFromPost["arguments"]["DataType"] == "SST":
         fromDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][0],dataFromPost["arguments"]["timeframe"][2])
         toDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][1],
                                               dataFromPost["arguments"]["timeframe"][2])
         fromDate = fromDate.strftime("%Y-%m-%d")
         toDate = toDate.strftime("%Y-%m-%d")
+        cube: xarray.Dataset = Collections_Sentinel2_SST_Data.load_collection("SST", fromDate, toDate)
 
-        cube : xarray.Dataset = Collections_Sentinel2_SST_Data.load_collection("SST",
-                                                       fromDate, toDate)
-        #try:
-        #    Collections_Sentinel2_SST_Data.load_collection("SST",
-        #                                                   [fromDate.year, toDate.year,
-        #                                                    os.path.join("/data/", str(id), "data/"), "cube"])
-        #except:
-        #    job["status"] = "error"
-        #    job["errorType"] = "Unkown Error"
-        #    return
+        try:
+            #cube: xarray.Dataset = Collections_Sentinel2_SST_Data.load_collection("SST",
+                                                                                  #fromDate, toDate)
+            print("x")
+        except Collections_Sentinel2_SST_Data.TimeframeLengthError:
+            job["status"] = "error"
+            job["errorType"] = "TimeframeLengthError"
+            return
+        except Collections_Sentinel2_SST_Data.ParameterTypeError:
+            job["status"] = "error"
+            job["errorType"] = "ParameterTypeError"
+            return
+        except Collections_Sentinel2_SST_Data.FileNotFoundError:
+            job["status"] = "error"
+            job["errorType"] = "FileNotFoundError"
+            return
+        except:
+            job["status"] = "error"
+            job["errorType"] = "Unkown Error"
+            return
         subid = uuid.uuid1()
-        fromFile = os.path.join("/data/", str(id), "data/sst.day.mean.cube.nc")
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
-        #os.rename(fromFile, toFile)
-        #shutil.rmtree("data/" + str(id) + "/data")
         cube = cube.fillna(np.nan)
         cube.to_netcdf(toFile)
         job["id"] = str(subid)
         job["status"] = "done"
     elif dataFromPost["arguments"]["DataType"] == "Sentinel2":
-        fromDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][0],
-                                              dataFromPost["arguments"]["timeframe"][2])
+        fromDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][0],dataFromPost["arguments"]["timeframe"][2])
         toDate = datetime.datetime.strptime(dataFromPost["arguments"]["timeframe"][1],
-                                            dataFromPost["arguments"]["timeframe"][2])
-        fromDate = fromDate.strftime("%Y%m%d")
-        toDate = toDate.strftime("%Y%m%d")
-        params = [os.path.join("data/",str(id),"data/"),(fromDate,toDate),(dataFromPost["arguments"]["cloudcoverage"][0],dataFromPost["arguments"]["cloudcoverage"][1]),dataFromPost["arguments"]["Login"][0],dataFromPost["arguments"]["Login"][1]]
+                                              dataFromPost["arguments"]["timeframe"][2])
+        fromDate = fromDate.strftime("%Y-%m-%d")
+        toDate = toDate.strftime("%Y-%m-%d")
 
-        Collections_Sentinel2_SST_Data.load_collection("Sentinel2", params)
-        #try:
-        #    Collections_Sentinel2_SST_Data.load_collection("Sentinel2", params)
-        #except:
-        #    job["status"] = "error"
-        #    job["errorType"] = "Unkown Error"
-        #    return
-        x = os.listdir("data/"+str(id)+"/data")
+        try:
+            cube: xarray.DataArray = Collections_Sentinel2_SST_Data.load_collection("Sentinel2", fromDate, toDate)
+        except Collections_Sentinel2_SST_Data.TimeframeLengthError:
+            job["status"] = "error"
+            job["errorType"] = "TimeframeLengthError"
+            return
+        except Collections_Sentinel2_SST_Data.ParameterTypeError:
+            job["status"] = "error"
+            job["errorType"] = "ParameterTypeError"
+            return
+        except Collections_Sentinel2_SST_Data.FileNotFoundError:
+            job["status"] = "error"
+            job["errorType"] = "FileNotFoundError"
+            print(sys.exc_info())
+            return
+        except:
+            job["status"] = "error"
+            job["errorType"] = "Unkown Error"
+            print(sys.exc_info())
+            return
         subid = uuid.uuid1()
         toFile = os.path.join("/data/", str(id), str(subid) + ".nc")
-        os.rename("data/"+str(id)+"/data/"+str(x[0]), toFile)
-        shutil.rmtree("data/" + str(id) + "/data")
+        cube.to_netcdf(toFile)
         job["id"] = str(subid)
         job["status"] = "done"
 

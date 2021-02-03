@@ -853,7 +853,7 @@ global directorySentinel
 directorySentinel = "/SENTINEL/"
 global nameSentinel 
 nameSentinel = "Sentinel_datacube"
-timeframeSentinel = ('2020-06-01T00:00:00Z', '2020-06-15T23:59:59Z')
+timeframeSentinel = (os.environ.get("Sentinel_Start"), os.environ.get("Sentinel_End"))
 cloud = (0, 30)
 username = os.environ.get("Username")
 password = os.environ.get("Password")
@@ -864,13 +864,17 @@ global directorySST
 directorySST = "/SST/"
 global nameSST 
 nameSST = 'SST_datacube'
-SST_start = 2012
-SST_end = 2015
+SST_start = os.environ.get("SST_Start")
+SST_end = os.environ.get("SST_End")
 paramsSST = [SST_start, SST_end, directorySST, nameSST]
 
 '''Setup'''
-#create_collection("Sentinel2", paramsSentinel)
-#create_collection("SST", paramsSST)
+if os.environ.get("load_sst") == "True":
+    create_collection("SST", paramsSST)
+if os.environ.get("load_sentinel") == "True":
+    create_collection("Sentinel2", paramsSentinel)
+
+
 
 
 
