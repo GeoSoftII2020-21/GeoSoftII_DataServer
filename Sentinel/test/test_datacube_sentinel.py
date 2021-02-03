@@ -6,7 +6,7 @@ from Sentinel2_Data import *
 from shutil import copyfile
 
 '''direcrtory where testfiles will be downloaded'''
-directory = "F:/Data_Sentinel/WorkDir/"
+directory = "./"
 
 
 '''Parameter'''
