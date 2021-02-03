@@ -1,4 +1,4 @@
-%%pytest
+#%%pytest
 
 import os , sys, inspect, pytest, shutil, xarray as xr
 import xarray  as xr
