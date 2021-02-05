@@ -781,6 +781,8 @@ def create_collection(collection, params):
         collection (str): The collection which is needed, SST or Sentinel2
         params ([]): The params for executing the main - method
    '''
+    if client == None:
+        main()
         
     if collection == "SST":
         yearBegin = params[0]
@@ -821,7 +823,8 @@ def load_collection(collection, start, end):
     Returns:
         datacube (xArray.Dataset): requested datacube
     '''
-
+    if client == None:
+        main()
     if collection == "SST":
         if os.path.exists(directorySST+ nameSST+".nc"):
             SST = xr.open_dataset(directorySST+ nameSST+".nc")
@@ -846,6 +849,13 @@ def load_collection(collection, start, end):
         raise NameError("No Collection named like this")
 
 
+def main():
+    global client
+    global cluster
+    if client==None:
+        cluster = LocalCluster()
+        client = Client(cluster)
+        client
 
 
 '''Params Sentinel'''
@@ -864,25 +874,21 @@ global directorySST
 directorySST = "/SST/"
 global nameSST 
 nameSST = 'SST_datacube'
-SST_start = os.environ.get("SST_Start")
-SST_end = os.environ.get("SST_End")
+SST_start = int(os.environ.get("SST_Start"))
+SST_end = int(os.environ.get("SST_End"))
 paramsSST = [SST_start, SST_end, directorySST, nameSST]
 
 '''Setup'''
-if os.environ.get("load_sst") == "True":
-    create_collection("SST", paramsSST)
-if os.environ.get("load_sentinel") == "True":
-    create_collection("Sentinel2", paramsSentinel)
 
 
 
 
 
-if __name__ == "__main__":
-    cluster = LocalCluster()
-    client = Client(cluster)
-    client
-
+def init():
+    if os.environ.get("load_sst") == "True":
+        create_collection("SST", paramsSST)
+    if os.environ.get("load_sentinel") == "True":
+        create_collection("Sentinel2", paramsSentinel)
 
 
 '''
