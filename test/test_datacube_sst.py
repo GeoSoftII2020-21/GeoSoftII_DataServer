@@ -10,8 +10,7 @@ import numpy as np
 import os.path
 import pytest
 
-from datacube_sst import FileNotFoundError, DirectoryNotFoundError, TimeframeError, NotNetCDFError, FilenameError
-from datacube_sst import download_file, deleteNetcdf, generate_sst_datacube
+from datacube_sst import *
 
 '''directory where testfiles will be downloaded'''
 fileDirectory = "./"
@@ -96,3 +95,93 @@ def test_generate_sst_datacube():
     x = xr.open_dataset(filePath)
     if np.datetime_as_string(x["time"][0], unit='D') == start and np.datetime_as_string(x["time"][-1], unit='D') == end:
         assert True
+      
+'''tests function get_time_sub_datacube'''
+
+os.getcwd()
+ds = xr.open_dataset("./GeoSoftII_DataServer/test/sst.day.mean.1984-03-4days.nc")
+
+'''test that result was sliced correctly'''   
+
+def test_get_time_sub_datacube():
+    start = '1984-03-01'
+    end = '1984-03-03'
+    sub = get_time_sub_datacube(ds, [start, end])
+    if start != np.datetime_as_string(sub["time"][0], unit='D') or end != np.datetime_as_string(sub["time"][-1], unit='D'):
+        assert False
+    
+'''test that parameter timeframe has right length'''
+
+def test_TimeframeTooLong():
+    with pytest.raises(TimeframeLengthError): 
+        get_time_sub_datacube(ds, ['1984-03-01', '1984-03-01', '1984-03-01'])
+            
+def test_TimeframeTooShort():
+    with pytest.raises(TimeframeLengthError): 
+        get_time_sub_datacube(ds, ['1984-03-01'])
+            
+'''test that dates within parameter timeframe are inside bounds'''
+
+def test_TimeframeOutsideBottomRangeFirstP():
+    with pytest.raises(TimeframeValueError): 
+        get_time_sub_datacube(ds, ['1984-02-01','1984-03-01'])
+            
+def test_TimeframeOutsideTopRangeFirstP():
+    with pytest.raises(TimeframeValueError): 
+        get_time_sub_datacube(ds, ['1984-04-01','1984-03-01'])
+            
+def test_TimeframeOutsideBottomRangeSecondP():
+    with pytest.raises(TimeframeValueError): 
+        get_time_sub_datacube(ds, ['1984-03-01','1984-02-01'])
+            
+def test_TimeframeOutsideTopRangeSecondP():
+    with pytest.raises(TimeframeValueError): 
+        get_time_sub_datacube(ds, ['1984-03-01','1984-04-01'])
+            
+def test_StartDateBiggerThanEndDate():
+    with pytest.raises(TimeframeValueError): 
+        get_time_sub_datacube(ds, ['1984-03-04','1984-03-01'])
+            
+'''test that dates within parameter timeframe are real dates'''
+                          
+def test_InvalidDateFirstP():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-03-00','1984-03-02'])
+            
+def test_InvalidDateSecondP():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-03-01','1984-03-40'])
+            
+'''test that dates within parameter timeframe are valid datetimes'''
+    
+def test_InvalidDatetimeSyntaxFirstP_1():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984.03.01','1984-03-02'])
+            
+def test_InvalidDatetimeSyntaxSecondP_1():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-03-01','1984.03.02'])
+            
+def test_InvalidDatetimeSyntaxFirstP_2():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-0301','1984-03-02'])
+            
+def test_InvalidDatetimeSyntaxSecondP_2():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-03-01','1984-0302'])
+            
+def test_InvalidDatetimeSyntaxFirstP_3():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['01-03-1984','1984-03-02'])
+            
+def test_InvalidDatetimeSyntaxSecondP_3():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-03-01','02-03-1984'])
+
+def test_InvalidDatetimeSyntaxFirstP_4():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-03','02-03-1984'])
+        
+def test_InvalidDatetimeSyntaxSecondP_4():
+    with pytest.raises(ParameterTypeError):
+        get_time_sub_datacube(ds, ['1984-03-01','1984-03'])
