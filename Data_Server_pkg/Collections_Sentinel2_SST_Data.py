@@ -139,8 +139,6 @@ paramsSST = [SST_start, SST_end, directorySST, nameSST]
 # create_collection("SST", paramsSST)
 
 
-
-
 '''
 User Example
 '''

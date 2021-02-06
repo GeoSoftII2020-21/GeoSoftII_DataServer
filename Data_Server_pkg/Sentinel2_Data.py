@@ -37,7 +37,7 @@ class NoSafeFileError(Exception):
 '''Dask Cluster'''
 from dask.distributed import Client, LocalCluster
 '''Python 3.9.1 Workaround'''
-# import multiprocessing.popen_spawn_posix#nonwindows#
+#import multiprocessing.popen_spawn_posix#nonwindows#
 #import multiprocessing.popen_spawn_win32#windows#
 #from distributed import Client#
 #Client()#
@@ -385,8 +385,8 @@ def merge_Sentinel(directory, nameSentinel):
         x = xr.open_dataset(os.path.join(directory, f))
         ds_merge.append(x)
         files.append(os.path.join(directory, f))
-    datacube = xr.open_mfdataset(files)#none dask
-#   datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})#with dask
+#   datacube = xr.open_mfdataset(files)#none dask
+    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})#with dask
     '''save datacube'''
     print("Start saving")
     datacube.to_netcdf(directory + nameSentinel + ".nc", compute = True)
@@ -401,29 +401,6 @@ def merge_Sentinel(directory, nameSentinel):
     end = datetime.now()
     diff = end - start
     print('All cubes merged for ' + str(diff.seconds) + 's')
-
-
-
-
-
-def timeframe(ds, start, end):
-    '''
-    Slices Datacube down to given timeframe
-    Parameters:
-        ds (xArray Dataset): Sourcedataset
-        start (str): Start of the timeframe eg '2018-07-13'
-        end (str): End of the timeframe eg '2018-08-23'
-    Returns:
-        ds_selected (xArray Dataset): Dataset sliced to timeframe
-    '''
-
-    if start > end:
-        print("start and end of the timeframe are not compatible!")
-    else:
-        ds_selected = ds.sel(time = slice(start, end))
-        return ds_selected
-
-
 
 
 
@@ -462,61 +439,6 @@ def merge_coords(ds_left, ds_right, name, directory):
     merged = xr.combine_by_coords(ds_merge)
     safe_datacube(merged, name, directory)
     merged.close()
-
-
-
-
-# def slice_lat(ds, lat_left, lat_right):
-#     '''
-#     Slices a given dataset to given latitude bounds
-#     Parameters:
-#         ds (xArray Dataset): Dataset to be sliced
-#         lat_left (float): Left latitude bound
-#         lat_right (float): Right latitude bound
-#     Returns:
-#         ds (xArray Dataset): Sliced dataset
-#     '''
-
-#     ds_selected = ds.sel(lat = slice(lat_left, lat_right))
-#     return ds_selected
-
-
-
-
-
-# def slice_lon(ds, lon_left, lon_right):
-#     '''
-#     Slices a given dataset to given longitude bounds
-#     Parameters:
-#         ds (xArray Dataset): Dataset to be sliced
-#         lon_left (float): Left longitude bound
-#         lon_right (float): Right longitude bound
-#     Returns:
-#         ds (xArray Dataset): Sliced dataset
-#     '''
-
-#     ds_selected = ds.sel(lon = slice(lon_left, lon_right))
-#     return ds_selected
-
-
-
-
-
-# def slice_coords(ds, lon_left, lon_right, lat_left, lat_right):
-#     '''
-#     Slices a dataset to a given slice
-#     Parameters:
-#         ds (xArray Dataset): Dataset to be sliced
-#         lon_left (float): Left bound for longitude
-#         lon_right (float): Right bound for longitude
-#         lat_left (float): Left bound for latitude
-#         lat_right (float): Right bound for latitude
-#     Returns:
-#         ds (xArray Dataset): Sliced dataset
-#     '''
-
-#     ds_selected = slice_lon(ds, lon_left, lon_right)
-#     return slice_lat(ds_selected, lat_left, lat_right)
 
 
 
