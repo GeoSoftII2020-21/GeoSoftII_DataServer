@@ -9,17 +9,26 @@ import shutil
 import datetime
 import numpy as np
 import sys
-
+import time
 
 docker = False
 
 app = Flask(__name__)
 
+'''Job Meta information'''
 job = {"status": None, "id": None, "jobid": None, "errorType": None}
 
 
 @app.route("/doJob/<uuid:id>", methods=["POST"])
 def doJob(id):
+    """
+    Expects a job reference which will be processed.
+    Args:
+        id: JobID
+
+    Returns:
+
+    """
     dataFromPost = request.get_json()
     job["status"] = "processing"
     t = threading.Thread(target=wrapper, args=(dataFromPost, id,))
@@ -29,20 +38,39 @@ def doJob(id):
 
 @app.route("/jobStatus", methods=["GET"])
 def jobStatus():
+    """
+    Returns the Job Status as a json.
+    Returns:
+        object:
+    """
     return jsonify(job)
 
 
 def wrapper(dataFromPost, id):
-    # try:
-    #    loadData(dataFromPost, id)
-    # except:
-    #    job["status"] = "error"
-    #    job["errorType"] = "Unkown Error"
-    #    return
-    loadData(dataFromPost, id)
+    """
+    Wrapper function for the Load Data Function
+    Returns:
+        object:
+    """
+    try:
+        loadData(dataFromPost, id)
+    except:
+        job["status"] = "error"
+        job["errorType"] = "Unkown Error"
+        print(sys.exc_info())
+        return
 
 
 def loadData(dataFromPost, id):
+    """
+    Loadin a dataset from the given Function from the Collections_Sentinel2__ST_Data.py
+    Args:
+        dataFromPost: JSON which got delivered with the request
+        id: Job ID
+
+    Returns: Void
+
+    """
     job["status"] = "running"
     job["jobid"] = str(id)
     if dataFromPost["arguments"]["DataType"] == "SST":
@@ -125,10 +153,16 @@ def loadData(dataFromPost, id):
 
 def main():
     """
-    Startet den Server. Aktuell im Debug Modus und Reagiert auf alle eingehenden Anfragen auf Port 80.
+    Starts the Server.
     """
     global docker
+    '''Downloadeing Datasets'''
     Collections_Sentinel2_SST_Data.init()
+    time.sleep(10)
+    '''Sends a request to signal that the server is ready to use'''
+    url = os.environ.get("process_name")
+    url = "http://"+ str(url) +":80/dataStatus"
+    requests.get(url)
     if os.environ.get("DOCKER") == "True":
         docker = True
     if docker:
@@ -136,7 +170,6 @@ def main():
     else:
         port = 443
     app.run(debug=False, host="0.0.0.0", port=port)
-
 
 if __name__ == "__main__":
     main()
