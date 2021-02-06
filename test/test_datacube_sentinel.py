@@ -1,4 +1,7 @@
-%%pytest
+import os,sys,inspect
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir) 
 
 import os , sys, inspect, pytest, shutil, xarray as xr
 import xarray  as xr
@@ -6,7 +9,7 @@ from Sentinel2_Data import *
 from shutil import copyfile
 
 '''direcrtory where testfiles will be downloaded'''
-directory = "F:/Data_Sentinel/WorkDir/"
+directory = "./"
 
 
 '''Parameter'''

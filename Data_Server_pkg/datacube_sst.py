@@ -182,16 +182,3 @@ def get_time_sub_datacube (path, timeframe):
     data = data.sel(time=slice(timeframe[0], timeframe[1]))
     data_sub = data.to_netcdf(compute=True, encoding = {"sst": {'missing_value': np.nan}})
     return data_sub
-
-
-
-
-
-fileDirectory = "F:/Data_SST/WorkDir/"
-
-generate_sst_datacube(1981, 1983, fileDirectory, "SSTdatacube")
-
-
-
-
-
