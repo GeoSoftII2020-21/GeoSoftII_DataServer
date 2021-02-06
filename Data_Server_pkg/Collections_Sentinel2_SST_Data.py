@@ -56,9 +56,7 @@ def create_collection(collection, params):
         global name
         name = params[3]
         generate_sst_datacube(yearBegin, yearEnd, directorySST, name)
-
         
-    
     elif collection == "Sentinel2":
         resolution = 100
         global directorySentinel
@@ -75,8 +73,6 @@ def create_collection(collection, params):
         raise NameError("No Collection named like this")
 
 
-
-
 def load_collection(collection, start, end): 
     '''
     Executes the SST - or the Sentinel - Dataprocess
@@ -91,27 +87,23 @@ def load_collection(collection, start, end):
     if collection == "SST":
         if os.path.exists(directorySST+ nameSST+".nc"):
             SST = xr.open_dataset(directorySST+ nameSST+".nc")
-            timeframe = []
-            timeframe.append(start)
-            timeframe.append(end)
+            timeframe = [start, end]
             SST_sel = get_time_sub_datacube(SST, timeframe)
+            SST.close()
             return SST_sel
         else:
             raise FileNotFoundError("Directory empty")
     elif collection == "Sentinel2":
         if os.path.exists(directorySentinel + nameSentinel + ".nc"):
             Sentinel = xr.open_dataset(directorySentinel + nameSentinel + ".nc")
-            timeframe = []
-            timeframe.append(start)
-            timeframe.append(end)
+            timeframe = [start,end]
             Sentinel_sel = get_time_sub_datacube(Sentinel, timeframe)
+            Sentinel.close()
             return Sentinel_sel
         else:
             raise FileNotFoundError("Directory empty")
     else:
         raise NameError("No Collection named like this")
-
-
 
 
 '''Params Sentinel'''
