@@ -1,10 +1,5 @@
-
-
-#'''Dask Cluster'''
+'''Dask Cluster'''
 from dask.distributed import Client, LocalCluster
-
-
-
 
 '''packages'''
 
@@ -133,8 +128,8 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     for f in files:
         x = xr.open_dataset(os.path.join(directory, f))
         ds_merge.append(x)
- #   datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})
-    datacube = xr.open_mfdataset(files,join="override")
+    datacube = xr.open_mfdataset(files, parallel=True, chunks={"time": "auto"})
+    '''datacube = xr.open_mfdataset(files,join="override") no dask'''
     '''save datacube'''
     print("Start saving")
     datacube.to_netcdf(directory + name + ".nc", compute = True)
@@ -146,18 +141,17 @@ def generate_sst_datacube (yearBegin, yearEnd, directory, name):
     for f in files:
         deleteNetcdf(f)
 
-def get_time_sub_datacube (path, timeframe):
+def get_time_sub_datacube (data, timeframe):
     '''
-    Generates a subset along the time dimension of the sst datacube and returns it
+    Generates a subset along the time dimension of the given datacube
 
     Parameters:
-        path (str): Path of the sst-datacube
+        data (xArray dataset): Dataset to be sliced
         timeframe ([str]): Tuple with values for start and end dates, e.g. ['1981-10-01','1981-11-01']
         
     Returns:
-        ds (bytes): sub dataset
+        data_sub (xArray dataset): sub dataset
     '''
-    data = xr.open_dataset(path)
     
     if len(timeframe) != 2:
         raise TimeframeLengthError("Parameter timeframe is an array with two values: [start date, end date]. Please specify an array with exactly two values.")
@@ -179,6 +173,5 @@ def get_time_sub_datacube (path, timeframe):
             or timeframe[0] > np.datetime_as_string(data["time"][-1], unit='D')):
         raise TimeframeValueError("Timeframe values are out of bounds. Please check the range of the dataset.")
     
-    data = data.sel(time=slice(timeframe[0], timeframe[1]))
-    data_sub = data.to_netcdf(compute=True, encoding = {"sst": {'missing_value': np.nan}})
+    data_sub = data.sel(time=slice(timeframe[0], timeframe[1]))
     return data_sub
