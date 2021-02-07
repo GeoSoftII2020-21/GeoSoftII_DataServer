@@ -99,7 +99,7 @@ def test_generate_sst_datacube():
 '''tests function get_time_sub_datacube'''
 
 os.getcwd()
-ds = xr.open_dataset("./GeoSoftII_DataServer/test/sst.day.mean.1984-03-4days.nc")
+ds = xr.open_dataset("./GeoSoftII_DataServer/Data_Server_pkg/test/sst.day.mean.1984-03-4days.nc")
 
 '''test that result was sliced correctly'''   
 
