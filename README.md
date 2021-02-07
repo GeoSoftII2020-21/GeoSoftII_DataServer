@@ -46,6 +46,14 @@ Der Microservice soll über Endpoints aufrufbar sein, leider sind noch keine ver
 
 
 #### Verwendete Software
-:bangbang: Software hinzufügen
 Software | Version
 ------ | ------
+numpy | 1.19.3
+scipy | 
+netCDF4 | 
+pandas | 1.1.5
+xarray | 0.16.2
+sentinelsat | 0.14
+rasterio | 1.1.8
+dask[complete] | 2.30.0
+
