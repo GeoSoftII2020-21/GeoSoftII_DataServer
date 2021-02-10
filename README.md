@@ -23,10 +23,10 @@ Außerdem gibt es ein [Docker Repository](https://hub.docker.com/repository/dock
 <a name="install"><h3>Installation</h3></a>
 :warning: _Die folgende Installation ist noch nicht verfügbar. Der Port und ähnliches können sich noch ändern._ 
 
-Die Installation und Ausführung des Containers erfolgt über den Befehl:
+Die Installation und AUsführung ist exklusiv im Rahmen des zur verfügung gestellten *[docker-compose.yml](https://github.com/GeoSoftII2020-21/GeoSoftII_Projekt/blob/Docker-compose/docker-compose.yml)* möglich
+```docker
+docker-compose up
 ```
-docker run -p 443:443 felixgi1516/geosoft2_dataserver
-````
 
 \
 <a name="use"><h3>Anwendung</h3></a>
@@ -97,9 +97,10 @@ SST = load_collection("SST",'2013-06-01', '2018-06-03')
 ````
 
 #### API Endpunkte
-Der Microservice soll über Endpoints aufrufbar sein, leider sind noch keine verfügbar.
 
-:bangbang: Endpoints anlegen und hier dokumentieren
+- `POST /doJob/{job_id}` Nimmt einen Job entgegen welcher Prozessiert wird.
+- `GET /jobstatus` Gibt einen JSON mit dem Job Status zurück.
+
 
 \
 <a name="annex"><h3>Anhang</h3></a>
