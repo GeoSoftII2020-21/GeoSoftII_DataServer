@@ -1,5 +1,5 @@
 # GeoSoftII_DataServer
-### Geosoftware II Projekt WiSe 2020/21
+### Geosoftware II Project WiSe 2020/21
 ---
 
 ## Table of contents
