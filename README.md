@@ -2,71 +2,64 @@
 ### Geosoftware II Projekt WiSe 2020/21
 ---
 
-## Inhaltsverzeichnis
-[1. Übersicht](#overview) \
+## Table of contents
+[1. Overview](#overview) \
 [2. Installation](#install) \
-[3. Anwendung](#use) \
-  3.1. Zentrale Funktionalität \
-  3.2. API Endpunkte \
-[4. Anhang](#annex)
-
+[3. Scope of functionalities](#functionalities)  \
+[4. Examples of use](#use) \
+[5. Technologies](#technologies)\
 \
-<a name="overview"><h3>Übersicht</h3></a>
-Dieses Projekt ist ein Teil für einen neuen [openEO](https://openeo.org/) Backenddriver der mit [Pangeo Software Stack](https://pangeo.io/) arbeitet.
+<a name="overview"><h3>Overview</h3></a>
+This project is part of a new [openEO](https://openeo.org/) back-end driver which uses the [Pangeo Software Stack](https://pangeo.io/).
 
-:construction: Ziel ist die von Servern Daten herunterzuladen und an die Processe SST und NDVI zu übergeben.
-Dabei wird konkret die Funktion /F0020/ Collections des Pflichtenheftes umgesetzt.
+The aim is to download data from servers and transfer it to the SST and NDVI processes.
+The function /F0020/ Collections of the functional specification is implemented.
 
-Außerdem gibt es ein [Docker Repository](https://hub.docker.com/repository/docker/felixgi1516/geosoft2_dataserver), welches mit diesem verlinkt ist und über das nach Fertigstellung der Service als Image bezogen werden. Und dann als Container lokal genutzt werden kann.
+There also exists a [Docker Repository](https://hub.docker.com/repository/docker/felixgi1516/geosoft2_dataserver), which is linked with this one and from which the service can be obtained as an image. And can then be used locally as a container.
 
 \
 <a name="install"><h3>Installation</h3></a>
-:warning: _Die folgende Installation ist noch nicht verfügbar. Der Port und ähnliches können sich noch ändern._ 
-
-Die Installation und AUsführung ist exklusiv im Rahmen des zur verfügung gestellten *[docker-compose.yml](https://github.com/GeoSoftII2020-21/GeoSoftII_Projekt/blob/Docker-compose/docker-compose.yml)* möglich
+The installation and execution is possible exclusively provided within the framework of the *[docker-compose.yml](https://github.com/GeoSoftII2020-21/GeoSoftII_Projekt/blob/Docker-compose/docker-compose.yml)*.
 ```docker
 docker-compose up
 ```
+\
+<a name="functionalities"><h3>Scope of functionalities</h3></a>
+The Data_Server contains two main functions:
+- `create_Collection()` for creating the Collections
+- `load_Collection()` for loading the collections.
+
+`create_Collection()` includes the parameters:
+1. `collection` "Sentinel" or "SST".
+2. `params` a list with the required parameters:
+	- params for Sentinel:
+		1. `directory` path to the workspace (must end with /)
+		2. `timeframe` A touple with two values: (startdate, enddate). The dates must be in the ISO 8601 format yyyy-mm-ddThh:mm:ssZ (e.g. '2020-06-15T23:59:59Z').
+		3. `cloud` Min and max value for cloud cover
+		4. `username` username for the Copernicus Open Acess Hub
+		5. `password` Password for the Copernicus Open Acess Hub
+		6. `name` Name under which the cube is stored
+	
+	- params for SST:
+		1. `start` First year of the cube
+		2. `end` Last year of the cube
+		3. `directory` Path to the workspace (must end with /)
+		4. `name` Name under which the cube is saved
+		
+The function includes the automated download of the files as Zip- btw. netCDF-file,
+the processing of the Zip- to netCDF-files, the conversion of these to xArray Datasets,
+the linking of individual datasets to a complete file, and the saving of this file.
+
+`load_Collection()` includes the parameters:
+1. `collection` "Sentinel" or "SST".
+2. `start` First day of the cube. The date must be in the ISO 8601 format yyyy-mm-dd (e.g. '2020-06-15').
+3. `end` Last day of the cube. The date must be in the ISO 8601 format yyyy-mm-dd (e.g. '2020-06-15').
+
+The function includes the loading of the stored cube, a temporal selection, 
+and the return of the cube for further use.
 
 \
-<a name="use"><h3>Anwendung</h3></a>
-
-
-#### Zentrale Funktionalität
-Der Data_Server enthält zwei Hauptfunktionen:
-- `create_Collection()` für das Erstellen der Collections
-- `load_Collection()` für das Einladen der Collections
-
-`create_Collection()` umfasst dabei die Parameter:
-1. `collection`  "Sentinel" oder "SST"
-2. `params` eine Liste mit den jeweils benötigten Parametern:
-	- params für Sentinel:
-		1. `directory` Pfad zum Arbeitsbereich (muss mit / enden)
-		2. `timeframe` A touple with two values: (startdate, enddate). The dates must be in the ISO 8601 format yyyy-mm-ddThh:mm:ssZ (e.g. '2020-06-15T23:59:59Z').
-		3. `cloud` Min und Maxwert für die Wolkenbedeckung
-		4. `username` Username für den Copernicus Open Acess Hub
-		5. `password` Passwort für den Copernicus Open Acess Hub
-		6. `name` Name unter dem der Cube abgespeichert wird
-	
-	- params für SST:
-		1. `start` Erstes Jahr des Cubes
-		2. `end` Letztes Jahr des Cubes
-		3. `directory` Pfad zum Arbeitsbereich (muss mit / enden)
-		4. `name` Name unter dem der Cube abgespeichert wird
-		
-Die Funktion umfasst dabei den automatisierten Download der Dateien als Zip- btw. netCDF-Datei,
-die Verarbeitung der Zip- zu netCDF-Dateien, die Umwandlung dieser zu xArray Datasets,
-das Verbinden einzelner Datensätze zu einer Gesammtdatei, sowie das Abspeichern dieser.
-
-`load_Collection()` umfasst dabei die Parameter:
-1. `collection` "Sentinel" oder "SST"
-2. `start` Erster Tag des Cubes. The date must be in the ISO 8601 format yyyy-mm-dd (e.g. '2020-06-15').
-3. `end` Letzter Tag des Cubes. The date must be in the ISO 8601 format yyyy-mm-dd (e.g. '2020-06-15').
-
-Die Funktion umfasst dabei das einladen des gespeicherten Cubes, eine zeitlich Auwahl, 
-sowie die Rückgabe des Cubes zur weiteren Verwendung
-
-####Example of Use
+<a name="use"><h3>Examples of use</h3></a>
 `create_Collection()`
 ```
 '''Params Sentinel'''
@@ -96,17 +89,15 @@ Sentinel = load_collection("Sentinel2",'2020-06-01', '2020-06-13')
 SST = load_collection("SST",'2013-06-01', '2018-06-03')
 ````
 
-#### API Endpunkte
+#### API endpoints
 
-- `POST /doJob/{job_id}` Nimmt einen Job entgegen welcher Prozessiert wird.
-- `GET /jobstatus` Gibt einen JSON mit dem Job Status zurück.
+- `POST /doJob/{job_id}` Accepts a job which is being processed.
+- `GET /jobstatus` Returns a JSON with the job status.
 
 
 \
-<a name="annex"><h3>Anhang</h3></a>
+<a name="technologies"><h3>Technologies</h3></a>
 
-
-#### Verwendete Software
 Software | Version
 ------ | ------
 numpy | 1.19.3
